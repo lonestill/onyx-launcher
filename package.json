@@ -52,7 +52,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.2",
-    "vite": "^7.1.12",
+    "vite": "^8.1.5",
     "wait-on": "^9.0.1"
   },
   "build": {
