@@ -2,7 +2,7 @@
 
 A modern, English-only Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Onyx keeps game instances isolated, installs official Minecraft files and popular mod loaders, integrates with Modrinth, and launches every instance with its own Java and performance settings.
 
-[Download the latest release](../../releases/latest) · [Report a bug](../../issues)
+[Download the latest release](../../releases/latest) · [Good first issues](../../issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md) · [Share an idea](../../discussions/categories/ideas)
 
 ## Screenshots
 
@@ -101,6 +101,12 @@ sha256sum --ignore-missing --check SHA256SUMS-linux.txt
 The command prints `OK` when the downloaded AppImage matches its entry in `SHA256SUMS-linux.txt`.
 
 A matching SHA-256 checksum confirms that the downloaded file matches the published release asset. It does not provide a code signature or prove who created the file.
+
+## Contributing
+
+Small, focused pull requests are welcome. You can start with a curated [good first issue](../../issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22), pick any task marked [help wanted](../../issues?q=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22), or discuss a larger change in [Ideas](../../discussions/categories/ideas).
+
+The [contribution guide](CONTRIBUTING.md) contains the codebase map, local setup, and verification commands. If an issue is unassigned, leave a short comment and start working on it; you do not need to wait for a formal assignment.
 
 
 ## Development
