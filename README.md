@@ -146,8 +146,8 @@ npm run capture:screenshots
 
 The repository uses two GitHub Actions workflows:
 
-- `CI` validates pull requests and pushes to non-release branches.
-- `Automatic release` runs after every push to `main` or `master`.
+- `CI` validates every pull request.
+- `Release` batches merged changes into a weekly Friday release and can also be started manually for an urgent release. A scheduled run exits without creating a version when there are no commits since the latest tag.
 
 A successful release workflow:
 
@@ -157,7 +157,7 @@ A successful release workflow:
 4. builds Windows and Linux x64 packages on native runners;
 5. generates SHA-256 checksum files and publishes a GitHub Release with generated notes.
 
-For the first GitHub push, set **Settings → Actions → General → Workflow permissions** to **Read and write permissions**. If the release branch is protected, allow `github-actions[bot]` to push the release commit and tag. The workflow-created commit does not start another release, preventing a version-bump loop.
+Set **Settings → Actions → General → Workflow permissions** to **Read and write permissions**. If the release branch is protected, allow `github-actions[bot]` to push the release commit and tag.
 
 ## Local packaging
 
