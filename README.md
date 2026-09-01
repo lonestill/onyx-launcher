@@ -85,7 +85,7 @@ The SHA-256 checksum files attached to each release can be used to verify that a
 Open PowerShell in the directory containing the downloaded `.exe` file and run:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 .\<downloaded-file>.exe
+Get-FileHash -Algorithm SHA256 .\*.exe
 ```
 
 Compare the resulting `Hash` value with the matching entry in `SHA256SUMS-windows.txt`.
@@ -95,10 +95,10 @@ Compare the resulting `Hash` value with the matching entry in `SHA256SUMS-window
 Open a terminal in the directory containing the downloaded AppImage and run:
 
 ```bash
-sha256sum <downloaded-file>.AppImage
+sha256sum --ignore-missing --check SHA256SUMS-linux.txt
 ```
 
-Compare the resulting hash with the matching entry in `SHA256SUMS-linux.txt`.
+The command prints `OK` when the downloaded AppImage matches its entry in `SHA256SUMS-linux.txt`.
 
 A matching SHA-256 checksum confirms that the downloaded file matches the published release asset. It does not provide a code signature or prove who created the file.
 
