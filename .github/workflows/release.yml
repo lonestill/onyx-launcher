@@ -1,10 +1,8 @@
-name: Automatic release
+name: Release
 
 on:
-  push:
-    branches:
-      - main
-      - master
+  schedule:
+    - cron: "0 12 * * 5"
   workflow_dispatch:
 
 permissions:
@@ -15,8 +13,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      pending: ${{ steps.pending.outputs.value }}
+
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for unreleased commits
+        id: pending
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          LATEST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [[ -z "$LATEST_TAG" ]] || [[ "$(git rev-list --count "${LATEST_TAG}..HEAD")" -gt 0 ]]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+
   prepare:
-    if: github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore(release):')
+    needs: changes
+    if: needs.changes.outputs.pending == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     outputs:

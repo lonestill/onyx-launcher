@@ -54,7 +54,7 @@ npm run check
 
 Describe the problem, the implementation, and how the change was verified. Include before-and-after screenshots for visual changes. Keep unrelated refactors out of the same pull request.
 
-Do not edit the package version for a normal contribution. A successful push to `main` or `master` automatically increments the patch version, creates a tag, builds packages, and publishes a GitHub Release.
+Do not edit the package version for a normal contribution. Merged changes are batched into the next weekly release; maintainers can also start an urgent release manually. The release workflow increments the patch version, creates a tag, builds packages, and publishes a GitHub Release.
 
 ## Security reports
 
