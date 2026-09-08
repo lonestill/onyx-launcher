@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
 import {
   Check,
   CircleAlert,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { DownloadTask } from "../types";
-import { formatBytes } from "../utils";
+import { formatBytes, formatSpeed, formatEta } from "../utils";
 
 interface DownloadsPageProps {
   downloads: DownloadTask[];
@@ -141,6 +142,21 @@ function DownloadRow({
   onCancel: (task: DownloadTask) => void;
 }) {
   const { locale, t } = useI18n();
+  const [displaySpeed, setDisplaySpeed] = useState<number | null>(null);
+  const [displayEta, setDisplayEta] = useState<number | null>(null);
+  const speedRef = useRef(task.speed);
+  const etaRef = useRef(task.eta);
+  useEffect(() => {
+    speedRef.current = task.speed;
+    etaRef.current = task.eta;
+  }, [task.speed, task.eta]);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDisplaySpeed(speedRef.current ?? null);
+      setDisplayEta(etaRef.current ?? null);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
   const done = task.status === "done";
   const failed = task.status === "error";
   const cancelled = task.status === "cancelled";
@@ -190,6 +206,13 @@ function DownloadRow({
                 animate={{ width: `${Math.max(task.progress, 2)}%` }}
               />
             </div>
+            {console.log(displaySpeed, displayEta)}
+            {displaySpeed ? (
+              <div className="download-speed">
+                <strong>{formatSpeed(displaySpeed)}</strong>
+                {displayEta ? <small>~ {formatEta(displayEta)}</small> : null}
+              </div>
+            ) : null}
             <div className="download-row__stats">
               <span>
                 {formatBytes(task.received, locale)} / {formatBytes(task.total, locale)}

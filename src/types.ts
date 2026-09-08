@@ -170,11 +170,14 @@ export interface DownloadTask {
     | "done"
     | "error"
     | "cancelled";
+
   createdAt: string;
   received?: number;
   total?: number;
   localPath?: string;
   error?: string;
+  speed?: number;
+  eta?: number;
 }
 
 export interface LauncherState {
