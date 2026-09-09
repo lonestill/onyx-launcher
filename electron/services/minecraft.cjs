@@ -827,6 +827,7 @@ class MinecraftService {
     account,
     demo,
     launchWrapper,
+    extraJvmArguments = [],
     onLog,
     onSpawn,
     onExit,
@@ -942,6 +943,14 @@ class MinecraftService {
           .map((argument) => argument.trim())
           .filter(Boolean)
           .slice(0, 24),
+      );
+    }
+    if (Array.isArray(extraJvmArguments)) {
+      jvmArguments.push(
+        ...extraJvmArguments
+          .filter((argument) => typeof argument === "string")
+          .map((argument) => argument.trim())
+          .filter(Boolean),
       );
     }
 

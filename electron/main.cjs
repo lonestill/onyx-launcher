@@ -2450,6 +2450,7 @@ function registerIpc() {
       const fpsLaunch = await fpsRecorder.prepare().catch(() => ({
         wrapper: null,
         status: null,
+        extraJvmArguments: [],
       }));
       const launch = await minecraftService.buildLaunch({
         instance,
@@ -2457,6 +2458,7 @@ function registerIpc() {
         account,
         demo,
         launchWrapper: fpsLaunch.wrapper,
+        extraJvmArguments: fpsLaunch.extraJvmArguments,
         onSpawn: (pid) => {
           recorder.attach(pid);
           fpsRecorder.attach(pid);

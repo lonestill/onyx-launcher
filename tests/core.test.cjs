@@ -1472,6 +1472,16 @@ test("FPS provider detection finds a configured PresentMon executable", async ()
   assert.equal(status.executable, executable);
 });
 
+test("FPS provider detection falls back to Onyx Probe when native hook is missing", async () => {
+  const status = await detectFpsRecorder({
+    platform: "darwin",
+    env: {},
+  });
+  assert.equal(status.available, true);
+  assert.equal(status.provider, "onyx-agent");
+  assert.equal(status.name, "Onyx Probe");
+});
+
 test("Mod profiles save and apply mod states without touching new mods", async () => {
   const instancesRoot = path.join(temporaryRoot, "profile-instances");
   const instanceId = "profile-demo";

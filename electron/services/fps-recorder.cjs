@@ -95,11 +95,15 @@ async function firstExecutable(candidates, platform = process.platform) {
   return null;
 }
 
+const ONYX_AGENT_JAR = path.resolve(__dirname, "..", "tools", "onyx-fps-agent.jar");
+
 async function detectFpsRecorder({
   platform = process.platform,
   env = process.env,
   presentMonPath = null,
 } = {}) {
+  const hasAgent = fs.existsSync(ONYX_AGENT_JAR);
+
   if (platform === "linux") {
     const executable = await firstExecutable(
       [
@@ -110,13 +114,36 @@ async function detectFpsRecorder({
       ],
       platform,
     );
+    if (executable) {
+      return {
+        available: true,
+        provider: "mangohud",
+        name: "MangoHud",
+        executable,
+        platform,
+        installHint: "sudo pacman -S mangohud",
+        installable: false,
+      };
+    }
+    if (hasAgent) {
+      return {
+        available: true,
+        provider: "onyx-agent",
+        name: "Onyx Probe",
+        executable: ONYX_AGENT_JAR,
+        platform,
+        installHint: null,
+        installable: false,
+      };
+    }
     return {
-      available: Boolean(executable),
-      provider: executable ? "mangohud" : null,
+      available: false,
+      provider: null,
       name: "MangoHud",
-      executable,
+      executable: null,
       platform,
       installHint: "sudo pacman -S mangohud",
+      installable: false,
     };
   }
 
@@ -135,14 +162,48 @@ async function detectFpsRecorder({
       ],
       platform,
     );
+    if (executable) {
+      return {
+        available: true,
+        provider: "presentmon",
+        name: "PresentMon",
+        executable,
+        platform,
+        installHint: "PresentMon",
+        installable: false,
+      };
+    }
+    if (hasAgent) {
+      return {
+        available: true,
+        provider: "onyx-agent",
+        name: "Onyx Probe",
+        executable: ONYX_AGENT_JAR,
+        platform,
+        installHint: null,
+        installable: false,
+      };
+    }
     return {
-      available: Boolean(executable),
-      provider: executable ? "presentmon" : null,
+      available: false,
+      provider: null,
       name: "PresentMon",
-      executable,
+      executable: null,
       platform,
       installHint: "PresentMon",
-      installable: !executable,
+      installable: true,
+    };
+  }
+
+  if (hasAgent) {
+    return {
+      available: true,
+      provider: "onyx-agent",
+      name: "Onyx Probe",
+      executable: ONYX_AGENT_JAR,
+      platform,
+      installHint: null,
+      installable: false,
     };
   }
 
@@ -396,28 +457,38 @@ class FpsRecorder {
       return { wrapper: null, status: this.status };
     }
     await fsp.mkdir(this.outputDirectory, { recursive: true });
-    if (this.status.provider !== "mangohud") {
-      return { wrapper: null, status: this.status };
-    }
-    const config = [
-      "no_display",
-      "autostart_log=1",
-      `log_interval=${this.sampleIntervalMs}`,
-      `fps_sampling_period=${this.sampleIntervalMs}`,
-      `output_folder=${this.outputDirectory}`,
-    ].join(",");
-    return {
-      status: this.status,
-      wrapper: {
-        executable: this.status.executable,
-        argsBeforeExecutable: ["--dlsym"],
-        env: {
-          MANGOHUD: "1",
-          MANGOHUD_DLSYM: "1",
-          MANGOHUD_CONFIG: config,
+    if (this.status.provider === "mangohud") {
+      const config = [
+        "no_display",
+        "autostart_log=1",
+        `log_interval=${this.sampleIntervalMs}`,
+        `fps_sampling_period=${this.sampleIntervalMs}`,
+        `output_folder=${this.outputDirectory}`,
+      ].join(",");
+      return {
+        status: this.status,
+        wrapper: {
+          executable: this.status.executable,
+          argsBeforeExecutable: ["--dlsym"],
+          env: {
+            MANGOHUD: "1",
+            MANGOHUD_DLSYM: "1",
+            MANGOHUD_CONFIG: config,
+          },
         },
-      },
-    };
+        extraJvmArguments: [],
+      };
+    }
+    if (this.status.provider === "onyx-agent") {
+      return {
+        status: this.status,
+        wrapper: null,
+        extraJvmArguments: [
+          `-javaagent:${this.status.executable}=${this.outputFile}`,
+        ],
+      };
+    }
+    return { wrapper: null, status: this.status, extraJvmArguments: [] };
   }
 
   attach(pid) {
@@ -501,7 +572,8 @@ class FpsRecorder {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
     const csvFiles =
-      this.status.provider === "presentmon"
+      this.status.provider === "presentmon" ||
+      this.status.provider === "onyx-agent"
         ? [{ path: this.outputFile, modifiedAt: Date.now() }]
         : await listCsvFiles(this.outputDirectory);
     csvFiles.sort((left, right) => right.modifiedAt - left.modifiedAt);
