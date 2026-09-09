@@ -34,8 +34,7 @@ export function formatBytes(
 }
 
 export function formatSpeed(bytesPerSec: number): string {
-  if (bytesPerSec >= 1_000_000) return `${(bytesPerSec / 1_000_000).toFixed(1)} MB/s`
-  return `${(bytesPerSec / 1_000).toFixed(0)} KB/s`
+  return `${formatBytes(bytesPerSec)}/s`
 }
 
 export function formatEta(seconds: number): string {

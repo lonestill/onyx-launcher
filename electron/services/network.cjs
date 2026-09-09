@@ -245,14 +245,12 @@ async function downloadFile({
           if (now - lastReport > 100 || (total && received >= total)) {
             lastReport = now;
             const elapsed = (now - lastSpeedCheck) / 1000;
-            const bytesPerSec = (received - lastSpeedBytes) / elapsed;
+            const result = calculateSpeed(speedSamples, received, lastSpeedBytes, elapsed);
             lastSpeedCheck = now;
             lastSpeedBytes = received;
-            speedSamples.push(bytesPerSec);
-            if (speedSamples.length > 5) speedSamples.shift();
-            const smoothedSpeed = speedSamples.reduce((a, b) => a + b) / speedSamples.length;
-            const safeSpeed = isFinite(smoothedSpeed) && smoothedSpeed > 0 ? smoothedSpeed : null;
-            const eta = safeSpeed && total ? (total - received) / safeSpeed : null;
+            if (result) speedSamples = result.samples;
+            const safeSpeed = result?.speed ?? null;
+            const eta = calculateEta(total, received, safeSpeed);
             onProgress?.({ received, total, cached: false, resumed, speed: safeSpeed, eta });
           }
           callback(null, chunk);
