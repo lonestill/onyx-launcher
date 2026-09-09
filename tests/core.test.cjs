@@ -141,6 +141,7 @@ const {
   SCOPE,
   MC_LOGIN,
 } = require("../electron/services/auth.cjs");
+const { calculateSpeed, calculateEta } = require("../electron/services/network.cjs");
 
 const temporaryRoot = path.resolve(__dirname, ".tmp");
 
@@ -1773,4 +1774,42 @@ test("Instance storage analyzer classifies data and cleans only safe stale files
     (await fsp.readdir(path.join(instanceRoot, "crash-reports"))).length,
     3,
   );
+});
+
+test("Speed is averaged over recent samples", () => {
+  const result = calculateSpeed([], 1000, 0, 1);
+  assert.equal(result.speed, 1000);
+  assert.deepEqual(result.samples, [1000]);
+
+  const result2 = calculateSpeed([500, 500, 500, 500], 1000, 0, 1);
+  assert.equal(result2.speed, 600);
+  assert.equal(result2.samples.length, 5);
+});
+
+test("Old samples are dropped after 5", () => {
+  const result = calculateSpeed([1, 2, 3, 4, 5], 1000, 0, 1);
+  assert.equal(result.samples.length, 5);
+  assert.equal(result.samples[0], 2);
+});
+
+test("ETA is calculated from remaining bytes and speed", () => {
+  assert.equal(calculateEta(1000, 500, 100), 5);
+  assert.equal(calculateEta(1000, 0, 250), 4);
+});
+
+test("ETA returns null when data unavailable", () => {
+  assert.equal(calculateEta(0, 0, 100), null);
+  assert.equal(calculateEta(1000, 0, 0), null);
+  assert.equal(calculateEta(null, 0, 100), null);
+});
+
+test("Speed returns null on zero elapsed time", () => {
+  assert.equal(calculateSpeed([], 1000, 0, 0), null);
+});
+
+test("Speed and ETA handle stall and zero bytes gracefully", () => {
+  const result = calculateSpeed([], 0, 0, 1);
+  assert.equal(result.speed, 0);
+  assert.equal(calculateEta(1000, 0, 0), null);
+  assert.equal(calculateEta(1000, 0, -5), null);
 });

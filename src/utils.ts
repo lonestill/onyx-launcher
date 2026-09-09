@@ -32,3 +32,13 @@ export function formatBytes(
   );
   return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
 }
+
+export function formatSpeed(bytesPerSec: number): string {
+  return `${formatBytes(bytesPerSec)}/s`
+}
+
+export function formatEta(seconds: number): string {
+  if (!isFinite(seconds) || seconds < 0) return "";
+  if (seconds > 60) return `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`
+  return `${Math.floor(seconds)}s`
+}

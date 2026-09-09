@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { DownloadTask } from "../types";
-import { formatBytes } from "../utils";
+import { formatBytes, formatSpeed, formatEta } from "../utils";
 
 interface DownloadsPageProps {
   downloads: DownloadTask[];
@@ -190,6 +190,12 @@ function DownloadRow({
                 animate={{ width: `${Math.max(task.progress, 2)}%` }}
               />
             </div>
+            {task.speed ? (
+              <div className="download-speed">
+                <strong>{formatSpeed(task.speed)}</strong>
+                {task.eta ? <small>~ {formatEta(task.eta)}</small> : null}
+              </div>
+            ) : null}
             <div className="download-row__stats">
               <span>
                 {formatBytes(task.received, locale)} / {formatBytes(task.total, locale)}

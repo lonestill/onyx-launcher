@@ -235,18 +235,23 @@ async function downloadFile({
       let received = resumed ? offset : 0;
       let lastReport = 0;
       onProgress?.({ received, total, cached: false, resumed });
+      let speedSamples = [];
+      let lastSpeedCheck = Date.now();
+      let lastSpeedBytes = resumed ? offset : 0;
       const counter = new Transform({
         transform(chunk, _encoding, callback) {
           received += chunk.length;
           const now = Date.now();
           if (now - lastReport > 100 || (total && received >= total)) {
             lastReport = now;
-            onProgress?.({
-              received,
-              total,
-              cached: false,
-              resumed,
-            });
+            const elapsed = (now - lastSpeedCheck) / 1000;
+            const result = calculateSpeed(speedSamples, received, lastSpeedBytes, elapsed);
+            lastSpeedCheck = now;
+            lastSpeedBytes = received;
+            if (result) speedSamples = result.samples;
+            const safeSpeed = result?.speed ?? null;
+            const eta = calculateEta(total, received, safeSpeed);
+            onProgress?.({ received, total, cached: false, resumed, speed: safeSpeed, eta });
           }
           callback(null, chunk);
         },
@@ -294,6 +299,20 @@ async function downloadFile({
   throw lastError || new Error(`Failed to download the file: ${url}`);
 }
 
+function calculateSpeed(samples, received, lastBytes, elapsed) {
+  if (elapsed <= 0) return null;
+  const bytesPerSec = (received - lastBytes) / elapsed;
+  const next = [...samples, bytesPerSec].slice(-5);
+  const smoothed = next.reduce((a, b) => a + b) / next.length;
+  return { samples: next, speed: smoothed };
+}
+
+function calculateEta(total, received, speed) {
+  if (!total || !speed || speed <= 0) return null;
+  const remaining = total - received;
+  return remaining / speed;
+}
+
 async function downloadMany(items, options = {}) {
   const concurrency = Math.max(1, Math.min(options.concurrency || 8, 16));
   const knownTotalBytes = items.reduce((sum, item) => {
@@ -301,6 +320,7 @@ async function downloadMany(items, options = {}) {
     return sum + (Number.isFinite(s) && s > 0 ? s : 0);
   }, 0);
   const inFlight = new Map();
+  const speeds = new Map();
   let completedBytes = 0;
   let completed = 0;
   let cursor = 0;
@@ -308,17 +328,28 @@ async function downloadMany(items, options = {}) {
   const report = (item, progress) => {
     const rec = Number(progress?.received) || 0;
     inFlight.set(item.destination, rec);
+    if (progress?.speed) {
+      speeds.set(item.destination, progress.speed);
+    }
     let inFlightSum = 0;
     for (const b of inFlight.values()) {
       inFlightSum += b;
     }
+    let totalSpeed = 0;
+    for (const s of speeds.values()) {
+      totalSpeed += s;
+    }
     const received = completedBytes + inFlightSum;
     const total = knownTotalBytes > 0 ? knownTotalBytes : received;
+    const eta =
+      totalSpeed > 0 && total > received ? (total - received) / totalSpeed : null;
     options.onProgress?.({
       completed,
       count: items.length,
       received,
       total,
+      speed: totalSpeed,
+      eta,
       current: path.basename(item.destination),
     });
   };
@@ -335,6 +366,7 @@ async function downloadMany(items, options = {}) {
         onProgress: (progress) => report(item, progress),
       });
       inFlight.delete(item.destination);
+      speeds.delete(item.destination);
       completedBytes += Number(item.size) || 0;
       completed += 1;
       report(item, {
@@ -362,4 +394,6 @@ module.exports = {
   downloadMany,
   abortError,
   preservePartial,
+  calculateSpeed,
+  calculateEta
 };

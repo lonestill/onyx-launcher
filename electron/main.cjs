@@ -785,7 +785,7 @@ async function installModToInstance(project, targetInstance, task, signal) {
       sha512: file.hashes?.sha512,
       size: file.size,
       signal,
-      onProgress: ({ received, total }) => {
+      onProgress: ({ received, total, speed, eta }) => {
         const fileProgress = total ? received / total : 0.05;
         taskUpdate(task, {
           status: "downloading",
@@ -794,6 +794,8 @@ async function installModToInstance(project, targetInstance, task, signal) {
           ),
           received,
           total,
+          speed: speed ?? undefined,
+          eta: eta ?? undefined,
           subtitle:
             index === 0
               ? `${targetInstance.name} · ${version.name}`
@@ -2203,6 +2205,8 @@ function registerIpc() {
                   subtitle: progress.message,
                   received: progress.received,
                   total: progress.total,
+                  speed: progress.speed,
+                  eta: progress.eta,
                 }),
               signal: controller.signal,
             });

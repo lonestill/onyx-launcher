@@ -140,13 +140,15 @@ class ModpackService {
       sha512: file.hashes?.sha512,
       size: file.size,
       signal,
-      onProgress: ({ received, total }) =>
+      onProgress: ({ received, total, speed, eta }) =>
         onProgress?.({
           stage: "pack",
           progress: total ? Math.round((received / total) * 10) : 4,
           message: `Downloading package ${project.title}…`,
           received,
           total,
+          speed: speed ?? undefined,
+          eta: eta ?? undefined,
         }),
     });
     return { packPath: destination, release };
@@ -212,6 +214,8 @@ class ModpackService {
         count,
         received,
         total,
+        speed,
+        eta,
         current,
       }) => {
         const byFiles = completed / Math.max(count, 1);
@@ -224,6 +228,8 @@ class ModpackService {
           count,
           received,
           total,
+          speed: speed ?? undefined,
+          eta: eta ?? undefined,
         });
       },
     });
