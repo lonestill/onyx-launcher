@@ -1,8 +1,14 @@
 # Onyx Launcher
 
+[![CI](https://github.com/lonestill/onyx-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/lonestill/onyx-launcher/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/lonestill/onyx-launcher?color=22c55e&label=release)](https://github.com/lonestill/onyx-launcher/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Good First Issues](https://img.shields.io/github/issues/lonestill/onyx-launcher/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/lonestill/onyx-launcher/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+[![Scoop](https://img.shields.io/badge/Scoop-lonestill%2Fscoop--onyx-4b89dc)](https://github.com/lonestill/scoop-onyx)
+
 A modern, English-only Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Onyx keeps game instances isolated, installs official Minecraft files and popular mod loaders, integrates with Modrinth, and launches every instance with its own Java and performance settings.
 
-[Download the latest release](../../releases/latest) · [Good first issues](../../issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md) · [Share an idea](../../discussions/categories/ideas)
+[Download the latest release](https://github.com/lonestill/onyx-launcher/releases/latest) · [Good first issues](https://github.com/lonestill/onyx-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md) · [Share an idea](https://github.com/lonestill/onyx-launcher/discussions/categories/ideas)
 
 ## Screenshots
 
@@ -67,13 +73,37 @@ All screenshots are generated from the current English UI with `npm run capture:
 
 ## Install
 
-Download an installer or portable archive from the [latest GitHub Release](../../releases/latest):
+### Windows
 
-- Windows x64: NSIS installer or portable `.exe`.
-- Linux x64: AppImage or portable `.tar.gz`.
-- `SHA256SUMS-windows.txt` and `SHA256SUMS-linux.txt` are attached to every automated release.
+**Via Scoop:**
 
-Windows builds are unsigned unless a maintainer configures a code-signing certificate, so SmartScreen may display a warning.
+```powershell
+scoop bucket add onyx https://github.com/lonestill/scoop-onyx
+scoop install onyx/onyx-launcher
+```
+
+**Direct download:**
+
+Download an installer or portable archive from the [latest GitHub Release](https://github.com/lonestill/onyx-launcher/releases/latest):
+- NSIS installer: `Onyx.Launcher.Setup.1.6.8.exe`
+- Portable executable: `Onyx.Launcher.1.6.8.exe`
+
+Windows builds are unsigned, so SmartScreen may display a warning on first launch.
+
+### Linux
+
+**Arch Linux (AUR):**
+
+```bash
+yay -S onyx-launcher-bin
+# or build manually with makepkg from packaging/aur
+```
+
+**Direct download:**
+
+Download from the [latest GitHub Release](https://github.com/lonestill/onyx-launcher/releases/latest):
+- AppImage: `Onyx-Launcher-1.6.8-x86_64.AppImage`
+- Portable archive: `Onyx-Launcher-1.6.8-linux-x64.tar.gz`
 
 
 ### Verify a download
