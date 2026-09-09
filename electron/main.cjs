@@ -383,13 +383,18 @@ async function loadState() {
   await saveState();
 }
 
+let savePromise = Promise.resolve();
+
 async function saveState() {
-  if (!statePath) statePath = getStatePath();
-  await fsp.mkdir(path.dirname(statePath), { recursive: true });
-  const temporaryPath = `${statePath}.tmp`;
-  await fsp.writeFile(temporaryPath, JSON.stringify(state, null, 2), "utf8");
-  await fsp.rm(statePath, { force: true }).catch(() => undefined);
-  await fsp.rename(temporaryPath, statePath);
+  savePromise = savePromise.then(async () => {
+    if (!statePath) statePath = getStatePath();
+    await fsp.mkdir(path.dirname(statePath), { recursive: true });
+    const temporaryPath = `${statePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+    await fsp.writeFile(temporaryPath, JSON.stringify(state, null, 2), "utf8");
+    await fsp.rm(statePath, { force: true }).catch(() => undefined);
+    await fsp.rename(temporaryPath, statePath);
+  });
+  return savePromise;
 }
 
 async function syncOfflineSkin(profile, instanceDirectory) {
@@ -2449,6 +2454,7 @@ function registerIpc() {
       const fpsLaunch = await fpsRecorder.prepare().catch(() => ({
         wrapper: null,
         status: null,
+        extraJvmArguments: [],
       }));
       const launch = await minecraftService.buildLaunch({
         instance,
@@ -2456,6 +2462,7 @@ function registerIpc() {
         account,
         demo,
         launchWrapper: fpsLaunch.wrapper,
+        extraJvmArguments: fpsLaunch.extraJvmArguments,
         onSpawn: (pid) => {
           recorder.attach(pid);
           fpsRecorder.attach(pid);

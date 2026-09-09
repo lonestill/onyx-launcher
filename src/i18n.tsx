@@ -688,7 +688,7 @@ const en = {
   "instancePage.performance.stutters": "Stutters: {count}",
   "instancePage.performance.fpsUnavailable": "FPS was not captured",
   "instancePage.performance.fpsProviderMissing":
-    "No system provider was found. Install MangoHud on Linux or PresentMon on Windows.",
+    "No FPS capture provider was found.",
   "instancePage.performance.fpsNoData":
     "The provider started but returned no frames. RAM, CPU, and startup telemetry were recorded normally.",
   "instancePage.performance.timeline": "Load over time",

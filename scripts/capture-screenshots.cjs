@@ -31,7 +31,7 @@ const performance = {
   fps: {
     requested: true,
     available: true,
-    provider: "presentmon",
+    provider: "onyx-agent",
     averageFps: 146,
     onePercentLowFps: 92,
     minimumFps: 71,

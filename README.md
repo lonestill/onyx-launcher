@@ -48,7 +48,7 @@ All screenshots are generated from the current English UI with `npm run capture:
 - Update Preview shows added, changed, and removed modpack files before installation.
 - Onyx Sync exports reproducible settings and exact Modrinth mod versions to `.onyxprofile`.
 - Flight Recorder tracks memory, CPU, startup, GC pauses, and per-session performance.
-- Optional FPS recording through hidden MangoHud on Linux or PresentMon on Windows.
+- Optional FPS and frame-time recording powered by Onyx Probe (JVM agent) or MangoHud on Linux.
 - Performance baselines compare FPS, 1% lows, memory, and startup time between sessions.
 - Safe deletion through the operating-system trash, `.onyxpack` backups, and repair tools.
 - Transactional mod profiles, mod update history, storage analysis, and safe cleanup.

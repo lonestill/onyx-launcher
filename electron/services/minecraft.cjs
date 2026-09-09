@@ -441,15 +441,19 @@ class MinecraftService {
       });
     }
 
+    let highestProgress = 4;
     await downloadMany(downloads, {
       concurrency: 10,
       signal,
       onProgress: ({ completed, count, received, total, current }) => {
         const fileProgress = count ? completed / count : 1;
-        const byteProgress = total ? received / total : fileProgress;
+        const byteProgress = total && total > 0 ? received / total : fileProgress;
+        const ratio = total && total > 0 ? Math.min(1, Math.max(0, byteProgress)) : fileProgress;
+        const computed = 4 + Math.round(ratio * 76);
+        highestProgress = Math.min(80, Math.max(highestProgress, computed));
         onProgress?.({
           stage: "minecraft",
-          progress: 4 + Math.round(Math.max(fileProgress, byteProgress) * 76),
+          progress: highestProgress,
           message: `Installing Minecraft ${versionId}: ${current}`,
           completed,
           count,
@@ -823,6 +827,7 @@ class MinecraftService {
     account,
     demo,
     launchWrapper,
+    extraJvmArguments = [],
     onLog,
     onSpawn,
     onExit,
@@ -938,6 +943,14 @@ class MinecraftService {
           .map((argument) => argument.trim())
           .filter(Boolean)
           .slice(0, 24),
+      );
+    }
+    if (Array.isArray(extraJvmArguments)) {
+      jvmArguments.push(
+        ...extraJvmArguments
+          .filter((argument) => typeof argument === "string")
+          .map((argument) => argument.trim())
+          .filter(Boolean),
       );
     }
 

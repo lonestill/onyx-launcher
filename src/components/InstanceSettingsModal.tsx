@@ -376,7 +376,7 @@ export function InstanceSettingsModal({
                               provider:
                                 fpsRecorderStatus.platform === "linux"
                                   ? "MangoHud"
-                                  : "PresentMon",
+                                  : "Onyx Probe",
                             })}
                     </small>
                     {fpsRecorderStatus &&

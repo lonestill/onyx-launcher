@@ -86,8 +86,6 @@ export function InstanceCard({
       }}
     >
       <div className="instance-card__visual">
-        <div className="instance-card__grid" />
-        <div className="instance-card__orb" />
         <div className="instance-card__glyph">
           {instance.iconUrl ? (
             <img src={instance.iconUrl} alt="" />

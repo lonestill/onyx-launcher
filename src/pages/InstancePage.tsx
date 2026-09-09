@@ -2334,7 +2334,7 @@ export function InstancePage({
                         provider:
                           fpsRecorderStatus.platform === "linux"
                             ? "MangoHud"
-                            : "PresentMon",
+                            : "Onyx Probe",
                       })}
               </small>
               {fpsRecorderStatus &&
@@ -2476,7 +2476,7 @@ export function InstancePage({
                               latestPerformance.fps.provider ===
                               "mangohud"
                                 ? "MangoHud"
-                                : "PresentMon",
+                                : "Onyx Probe",
                           },
                         )}
                       />
