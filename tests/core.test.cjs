@@ -1426,17 +1426,17 @@ test("FPS Recorder parses MangoHud FPS and frametime samples", () => {
   assert.equal(summary.timeline[1].atSeconds, 0.5);
 });
 
-test("FPS Recorder derives FPS from PresentMon frame intervals", () => {
+test("FPS Recorder derives FPS from frame intervals and presentation times", () => {
   const summary = parseFpsCsv(
     [
-      "Application,ProcessID,TimeInSeconds,MsBetweenPresents",
-      "javaw.exe,42,100.000,16.6667",
-      "javaw.exe,42,100.017,20.0000",
-      "javaw.exe,42,100.037,10.0000",
+      "TimeInSeconds,MsBetweenPresents,FPS",
+      "0.000,16.67,60.0",
+      "0.017,20.00,50.0",
+      "0.037,10.00,100.0",
     ].join("\n"),
-    { provider: "presentmon" },
+    { provider: "onyx-agent" },
   );
-  assert.equal(summary.provider, "presentmon");
+  assert.equal(summary.provider, "onyx-agent");
   assert.equal(summary.sampleCount, 3);
   assert.equal(Math.round(summary.averageFps), 70);
   assert.ok(summary.timeline[2].atSeconds > 0.03);
@@ -1456,20 +1456,14 @@ test("FPS Recorder reports low and unstable sessions without false stable state"
   );
 });
 
-test("FPS provider detection finds a configured PresentMon executable", async () => {
-  const executable = path.join(temporaryRoot, "PresentMon.exe");
-  await fsp.writeFile(executable, "test");
+test("FPS provider detection selects Onyx Probe on Windows", async () => {
   const status = await detectFpsRecorder({
     platform: "win32",
-    env: {
-      PATH: temporaryRoot,
-      PATHEXT: ".EXE",
-      ONYX_PRESENTMON_PATH: executable,
-    },
+    env: {},
   });
   assert.equal(status.available, true);
-  assert.equal(status.provider, "presentmon");
-  assert.equal(status.executable, executable);
+  assert.equal(status.provider, "onyx-agent");
+  assert.equal(status.name, "Onyx Probe");
 });
 
 test("FPS provider detection falls back to Onyx Probe when native hook is missing", async () => {

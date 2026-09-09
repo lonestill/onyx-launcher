@@ -234,7 +234,7 @@ export interface FlightPerformance {
 export interface FpsPerformance {
   requested: boolean;
   available: boolean;
-  provider: "mangohud" | "presentmon" | null;
+  provider: "mangohud" | "onyx-agent" | null;
   averageFps?: number;
   onePercentLowFps?: number;
   minimumFps?: number;
@@ -251,7 +251,7 @@ export interface FpsPerformance {
 
 export interface FpsRecorderStatus {
   available: boolean;
-  provider: "mangohud" | "presentmon" | null;
+  provider: "mangohud" | "onyx-agent" | null;
   name: string | null;
   executable: string | null;
   platform: string;

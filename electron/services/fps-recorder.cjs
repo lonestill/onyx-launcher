@@ -1,66 +1,6 @@
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
-const { fetchJson, downloadFile } = require('./network.cjs');
-
-const PRESENTMON_RELEASE_ENDPOINT =
-  'https://api.github.com/repos/GameTechDev/PresentMon/releases/latest';
-const PRESENTMON_ASSET_NAME = /^PresentMon(?:-[A-Za-z0-9._-]+)?-x64\.exe$/i;
-
-function selectPresentMonAsset(release) {
-  const asset = Array.isArray(release?.assets)
-    ? release.assets.find((candidate) => {
-        if (!PRESENTMON_ASSET_NAME.test(String(candidate?.name || ''))) {
-          return false;
-        }
-        const url = String(candidate?.browser_download_url || '');
-        try {
-          const parsed = new URL(url);
-          return (
-            parsed.protocol === 'https:' &&
-            parsed.hostname === 'github.com' &&
-            parsed.pathname.startsWith(
-              '/GameTechDev/PresentMon/releases/download/',
-            )
-          );
-        } catch {
-          return false;
-        }
-      })
-    : null;
-  if (!asset || !Number.isFinite(Number(asset.size)) || asset.size < 1) {
-    throw new Error('The official PresentMon release does not contain an x64 binary');
-  }
-  if (Number(asset.size) > 200 * 1024 * 1024) {
-    throw new Error('The PresentMon file from the official release is too large');
-  }
-  return asset;
-}
-
-async function installPresentMon({
-  destination,
-  onProgress,
-  fetchRelease = fetchJson,
-  download = downloadFile,
-} = {}) {
-  if (!destination) throw new Error('The PresentMon installation path was not provided');
-  const release = await fetchRelease(PRESENTMON_RELEASE_ENDPOINT);
-  const asset = selectPresentMonAsset(release);
-  const digest = String(asset.digest || '');
-  const sha256 = /^sha256:([a-f0-9]{64})$/i.exec(digest)?.[1];
-  await download({
-    url: asset.browser_download_url,
-    destination,
-    size: Number(asset.size),
-    sha256,
-    onProgress,
-  });
-  return {
-    destination,
-    version: String(release.tag_name || asset.name),
-  };
-}
 
 function executableCandidates(name, { platform = process.platform, env = process.env } = {}) {
   const extensions =
@@ -100,7 +40,6 @@ const ONYX_AGENT_JAR = path.resolve(__dirname, "..", "tools", "onyx-fps-agent.ja
 async function detectFpsRecorder({
   platform = process.platform,
   env = process.env,
-  presentMonPath = null,
 } = {}) {
   const hasAgent = fs.existsSync(ONYX_AGENT_JAR);
 
@@ -125,74 +64,6 @@ async function detectFpsRecorder({
         installable: false,
       };
     }
-    if (hasAgent) {
-      return {
-        available: true,
-        provider: "onyx-agent",
-        name: "Onyx Probe",
-        executable: ONYX_AGENT_JAR,
-        platform,
-        installHint: null,
-        installable: false,
-      };
-    }
-    return {
-      available: false,
-      provider: null,
-      name: "MangoHud",
-      executable: null,
-      platform,
-      installHint: "sudo pacman -S mangohud",
-      installable: false,
-    };
-  }
-
-  if (platform === "win32") {
-    const programFiles = env.ProgramFiles || env.PROGRAMFILES;
-    const localAppData = env.LOCALAPPDATA;
-    const executable = await firstExecutable(
-      [
-        env.ONYX_PRESENTMON_PATH,
-        presentMonPath,
-        ...executableCandidates("PresentMon.exe", { platform, env }),
-        programFiles && path.join(programFiles, "Intel", "PresentMon", "PresentMon.exe"),
-        programFiles && path.join(programFiles, "PresentMon", "PresentMon.exe"),
-        localAppData &&
-          path.join(localAppData, "Intel", "PresentMon", "PresentMon.exe"),
-      ],
-      platform,
-    );
-    if (executable) {
-      return {
-        available: true,
-        provider: "presentmon",
-        name: "PresentMon",
-        executable,
-        platform,
-        installHint: "PresentMon",
-        installable: false,
-      };
-    }
-    if (hasAgent) {
-      return {
-        available: true,
-        provider: "onyx-agent",
-        name: "Onyx Probe",
-        executable: ONYX_AGENT_JAR,
-        platform,
-        installHint: null,
-        installable: false,
-      };
-    }
-    return {
-      available: false,
-      provider: null,
-      name: "PresentMon",
-      executable: null,
-      platform,
-      installHint: "PresentMon",
-      installable: true,
-    };
   }
 
   if (hasAgent) {
@@ -210,10 +81,10 @@ async function detectFpsRecorder({
   return {
     available: false,
     provider: null,
-    name: null,
+    name: platform === "linux" ? "MangoHud" : "Onyx Probe",
     executable: null,
     platform,
-    installHint: null,
+    installHint: platform === "linux" ? "sudo pacman -S mangohud" : null,
     installable: false,
   };
 }
@@ -431,30 +302,25 @@ class FpsRecorder {
     outputDirectory,
     platform = process.platform,
     env = process.env,
-    presentMonPath = null,
     sampleIntervalMs = 500,
   }) {
     this.enabled = Boolean(enabled);
     this.outputDirectory = outputDirectory;
     this.platform = platform;
     this.env = env;
-    this.presentMonPath = presentMonPath;
     this.sampleIntervalMs = sampleIntervalMs;
     this.status = null;
-    this.presentMon = null;
-    this.presentMonClosed = null;
-    this.outputFile = path.join(outputDirectory, "presentmon.csv");
+    this.outputFile = path.join(outputDirectory, "fps-samples.csv");
   }
 
   async prepare() {
-    if (!this.enabled) return { wrapper: null, status: null };
+    if (!this.enabled) return { wrapper: null, status: null, extraJvmArguments: [] };
     this.status = await detectFpsRecorder({
       platform: this.platform,
       env: this.env,
-      presentMonPath: this.presentMonPath,
     });
     if (!this.status.available) {
-      return { wrapper: null, status: this.status };
+      return { wrapper: null, status: this.status, extraJvmArguments: [] };
     }
     await fsp.mkdir(this.outputDirectory, { recursive: true });
     if (this.status.provider === "mangohud") {
@@ -491,43 +357,8 @@ class FpsRecorder {
     return { wrapper: null, status: this.status, extraJvmArguments: [] };
   }
 
-  attach(pid) {
-    if (
-      !this.enabled ||
-      !this.status?.available ||
-      this.status.provider !== "presentmon" ||
-      !Number.isInteger(pid) ||
-      pid <= 0
-    ) {
-      return;
-    }
-    try {
-      this.presentMon = spawn(
-        this.status.executable,
-        [
-          "--process_id",
-          String(pid),
-          "--output_file",
-          this.outputFile,
-          "--no_console_stats",
-          "--exclude_dropped",
-          "--terminate_on_proc_exit",
-          "--v1_metrics",
-        ],
-        {
-          windowsHide: true,
-          stdio: "ignore",
-          env: { ...this.env },
-        },
-      );
-      this.presentMonClosed = new Promise((resolve) => {
-        this.presentMon.once("close", resolve);
-        this.presentMon.once("error", resolve);
-      });
-    } catch {
-      this.presentMon = null;
-      this.presentMonClosed = null;
-    }
+  attach(_pid) {
+    // Onyx Probe runs in-process via JVM agent; MangoHud runs via launch wrapper.
   }
 
   async stop() {
@@ -553,26 +384,8 @@ class FpsRecorder {
         error: "provider-unavailable",
       });
     }
-    if (this.presentMon && this.presentMon.exitCode == null) {
-      if (this.presentMonClosed) {
-        await Promise.race([
-          this.presentMonClosed,
-          new Promise((resolve) => setTimeout(resolve, 1_000)),
-        ]);
-      }
-      if (this.presentMon.exitCode == null) {
-        this.presentMon.kill();
-        if (this.presentMonClosed) {
-          await Promise.race([
-            this.presentMonClosed,
-            new Promise((resolve) => setTimeout(resolve, 1_000)),
-          ]);
-        }
-      }
-    }
     await new Promise((resolve) => setTimeout(resolve, 250));
     const csvFiles =
-      this.status.provider === "presentmon" ||
       this.status.provider === "onyx-agent"
         ? [{ path: this.outputFile, modifiedAt: Date.now() }]
         : await listCsvFiles(this.outputDirectory);
@@ -595,9 +408,6 @@ class FpsRecorder {
 }
 
 module.exports = {
-  PRESENTMON_RELEASE_ENDPOINT,
-  selectPresentMonAsset,
-  installPresentMon,
   detectFpsRecorder,
   parseCsvLine,
   parseFpsCsv,
