@@ -29,7 +29,7 @@ interface LibraryPageProps {
   onImportSync: () => void;
 }
 
-type Filter = "all" | "fabric" | "forge" | "vanilla" | "favorite";
+type Filter = "all" | "fabric" | "forge" | "neoforge" | "quilt" | "vanilla" | "favorite";
 
 export function LibraryPage({
   instances,
@@ -56,6 +56,12 @@ export function LibraryPage({
         if (filter === "all") return true;
         if (filter === "forge") {
           return /forge/i.test(instance.loader) && !/neoforge/i.test(instance.loader);
+        }
+        if (filter === "neoforge") {
+          return /neoforge/i.test(instance.loader);
+        }
+        if (filter === "quilt") {
+          return /quilt/i.test(instance.loader);
         }
         return instance.loader.toLowerCase().includes(filter);
       })
@@ -125,6 +131,8 @@ export function LibraryPage({
               ["favorite", t("library.filter.favorite")],
               ["fabric", "Fabric"],
               ["forge", "Forge"],
+              ["neoforge", "NeoForge"],
+              ["quilt", "Quilt"],
               ["vanilla", "Vanilla"],
             ] as Array<[Filter, string]>
           ).map(([id, label]) => (

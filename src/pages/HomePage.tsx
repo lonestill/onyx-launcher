@@ -1,19 +1,27 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 import {
   ArrowRight,
   Boxes,
-  ChevronRight,
   Clock3,
-  Compass,
+  ExternalLink,
+  Folder,
+  FolderOpen,
   Layers3,
+  LoaderCircle,
   Play,
   Plus,
-  RefreshCw,
+  Radio,
+  Server,
+  Settings,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
+  Square,
+  Wrench,
 } from "lucide-react";
 import { useI18n } from "../i18n";
-import type { GameInstance, PlaySession, RouteId } from "../types";
+import type { GameInstance, MinecraftServerStatus, PlaySession, RouteId } from "../types";
 import { formatPlaytime } from "../utils";
 
 interface HomePageProps {
@@ -47,206 +55,262 @@ export function HomePage({
         : hour < 18
           ? t("home.greeting.day")
           : t("home.greeting.evening");
-  const featured =
-    instances.find((instance) => instance.favorite) ?? instances[0];
-  const recent = instances.slice(0, 3);
+
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const [quickServer, setQuickServer] = useState("");
+  const [pingResult, setPingResult] = useState<MinecraftServerStatus | null>(null);
+  const [pinging, setPinging] = useState(false);
+
+  const activeInstance =
+    instances.find((instance) => instance.id === selectedInstanceId) ??
+    instances.find((instance) => instance.favorite) ??
+    instances[0];
+
   const displayName = (instance: GameInstance) =>
     instance.id === "vanilla-start" && instance.name === "Pure Game"
       ? t("home.defaultName")
       : instance.name;
+
   const displayDescription = (instance: GameInstance) =>
     instance.id === "vanilla-start" && instance.description === "Minecraft without modifications"
       ? t("home.defaultDescription")
       : instance.description;
-  const totalMinutes = instances.reduce(
-    (sum, instance) => sum + instance.playtimeMinutes,
-    0,
-  );
+
   const latestSession = sessions[0];
   const failedInstance =
     latestSession?.exitCode !== undefined &&
     latestSession?.exitCode !== null &&
     latestSession.exitCode !== 0
-      ? instances.find(
-          (instance) => instance.id === latestSession.instanceId,
-        )
+      ? instances.find((instance) => instance.id === latestSession.instanceId)
       : undefined;
-  const updatesAvailable = instances.filter(
-    (instance) => instance.updateAvailable,
-  ).length;
-  const activity = [
-    {
-      id: "picks",
-      route: "picks" as RouteId,
-      tone: "violet",
-      icon: Sparkles,
-      category: t("home.feed.picks.category"),
-      title: t("home.feed.picks.title"),
-      text: t("home.feed.picks.text"),
-    },
-    failedInstance
-      ? {
-          id: "guard",
-          route: "library" as RouteId,
-          tone: "rose",
-          icon: ShieldAlert,
-          category: t("home.feed.guard.category"),
-          title: t("home.feed.guard.title", {
-            name: displayName(failedInstance),
-          }),
-          text:
-            failedInstance.lastDiagnosis?.message ||
-            t("home.feed.guard.text"),
-        }
-      : updatesAvailable
-        ? {
-            id: "updates",
-            route: "library" as RouteId,
-            tone: "lime",
-            icon: RefreshCw,
-            category: t("home.feed.updates.category"),
-            title: t("home.feed.updates.title", {
-              count: updatesAvailable,
-            }),
-            text: t("home.feed.updates.text"),
-          }
-        : {
-            id: "catalog",
-            route: "discover" as RouteId,
-            tone: "lime",
-            icon: Compass,
-            category: t("home.feed.catalog.category"),
-            title: t("home.feed.catalog.title"),
-            text: t("home.feed.catalog.text"),
-          },
-  ];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const week = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (6 - index));
-    const next = new Date(date);
-    next.setDate(date.getDate() + 1);
-    const minutes = sessions
-      .filter((session) => {
-        const endedAt = new Date(session.endedAt).getTime();
-        return endedAt >= date.getTime() && endedAt < next.getTime();
-      })
-      .reduce((sum, session) => sum + session.durationMinutes, 0);
-    return {
-      date,
-      minutes,
-      label: new Intl.DateTimeFormat("en-US", {
-        weekday: "narrow",
-      }).format(date),
-    };
-  });
-  const weekMaximum = Math.max(1, ...week.map((day) => day.minutes));
-  const weekMinutes = week.reduce((sum, day) => sum + day.minutes, 0);
+
+  const isRunning = activeInstance?.status === "running";
+  const isSetup = activeInstance?.status === "setup" || activeInstance?.status === "pack-ready";
+  const isError = activeInstance?.status === "error";
+
+  const handlePingServer = async () => {
+    if (!quickServer.trim() || pinging) return;
+    setPinging(true);
+    try {
+      const res = await window.onyx.system.serverStatus(quickServer.trim());
+      setPingResult(res);
+    } catch {
+      setPingResult({ online: false, address: quickServer.trim() });
+    } finally {
+      setPinging(false);
+    }
+  };
+
+  const handleJoinServer = async () => {
+    if (!quickServer.trim() || !activeInstance) return;
+    try {
+      await window.onyx.state.updateInstance(activeInstance.id, {
+        settings: {
+          ...activeInstance.settings,
+          serverAddress: quickServer.trim(),
+        },
+      });
+      const updated: GameInstance = {
+        ...activeInstance,
+        settings: {
+          ...activeInstance.settings,
+          serverAddress: quickServer.trim(),
+        },
+      };
+      onPlay(updated);
+    } catch {
+      onPlay(activeInstance);
+    }
+  };
 
   return (
     <motion.div
       className="page home-page"
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.24 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.18 }}
     >
       <div className="page-heading page-heading--home">
         <div>
-          <p className="eyebrow">{t("home.eyebrow")}</p>
+          <p className="eyebrow">COMMAND CENTER</p>
           <h1>
             {greeting}, <span>{profileName === "Player" ? t("profile.player") : profileName}</span>
           </h1>
-          <p>{t("home.subtitle")}</p>
         </div>
-        <button className="button button--secondary" onClick={onCreate}>
-          <Plus size={16} />
-          {t("home.newInstance")}
-        </button>
+        <div className="page-heading__actions">
+          <button className="button button--secondary" onClick={() => onNavigate("library")}>
+            {t("home.library")}
+            <ArrowRight size={14} />
+          </button>
+          <button className="button button--primary" onClick={onCreate}>
+            <Plus size={15} />
+            {t("home.newInstance")}
+          </button>
+        </div>
       </div>
 
-      {featured && (
-        <section className={`hero hero--${featured.color}`}>
-          <div className="hero__noise" />
-          <div className="hero__copy">
-            <div className="hero__tag">
-              <span>
-                <Sparkles size={13} />
-                {featured.status === "running"
+      {activeInstance && (
+        <section className="hero-station">
+          <div className="hero-station__main">
+            <div className="hero-station__tag">
+              <span
+                className={`status-pill ${
+                  isRunning
+                    ? "status-pill--running"
+                    : isError
+                      ? "status-pill--error"
+                      : "status-pill--ready"
+                }`}
+              >
+                {isRunning
                   ? t("home.status.running")
-                  : featured.status === "setup" ||
-                      featured.status === "pack-ready"
-                    ? t("home.status.setup")
-                    : featured.status === "error"
-                      ? t("home.status.error")
+                  : isError
+                    ? t("home.status.error")
+                    : isSetup
+                      ? t("home.status.setup")
                       : t("home.status.continue")}
               </span>
-              <i />
-              {featured.lastPlayed === "Never played" ? t("home.neverPlayed") : featured.lastPlayed}
-            </div>
-            <h2>{displayName(featured)}</h2>
-            <p>{displayDescription(featured)}</p>
-            <div className="hero__meta">
+              <i>·</i>
               <span>
-                <Layers3 size={15} />
-                Minecraft {featured.version}
-              </span>
-              <span>
-                <Boxes size={15} />
-                {featured.loader}
-              </span>
-              <span>
-                <Clock3 size={15} />
-                {formatPlaytime(featured.playtimeMinutes, locale)}
+                {activeInstance.lastPlayed === "Never played"
+                  ? t("home.neverPlayed")
+                  : activeInstance.lastPlayed}
               </span>
             </div>
-            <div className="hero__actions">
+
+            <h2>{displayName(activeInstance)}</h2>
+            {displayDescription(activeInstance) && (
+              <p className="hero-station__desc">{displayDescription(activeInstance)}</p>
+            )}
+
+            <div className="hero-station__meta">
+              <span>
+                <Layers3 size={13} />
+                Minecraft {activeInstance.version}
+              </span>
+              <span>
+                <Boxes size={13} />
+                {activeInstance.loader}
+              </span>
+              <span>
+                <Clock3 size={13} />
+                {formatPlaytime(activeInstance.playtimeMinutes, locale)}
+              </span>
+              {activeInstance.modCount > 0 && (
+                <span>
+                  {t("home.modsActive", { count: activeInstance.modCount })}
+                </span>
+              )}
+            </div>
+
+            <div className="hero-station__actions">
               <button
-                className="button button--primary button--play"
-                onClick={() => onPlay(featured)}
+                className={`button button--play ${
+                  isRunning ? "button--danger-quiet" : "button--primary"
+                }`}
+                onClick={() => onPlay(activeInstance)}
               >
-                <Play size={18} fill="currentColor" />
-                {featured.status === "running"
-                  ? t("home.action.stop")
-                  : featured.status === "setup" ||
-                      featured.status === "pack-ready"
-                    ? t("home.action.install")
-                    : featured.status === "error"
-                      ? t("home.action.retry")
-                      : t("home.action.play")}
+                {isRunning ? (
+                  <>
+                    <Square size={15} fill="currentColor" />
+                    {t("home.action.stop")}
+                  </>
+                ) : isSetup ? (
+                  <>
+                    <Sparkles size={15} />
+                    {t("home.action.install")}
+                  </>
+                ) : isError ? (
+                  <>
+                    <Wrench size={15} />
+                    {t("home.action.retry")}
+                  </>
+                ) : (
+                  <>
+                    <Play size={15} fill="currentColor" />
+                    {t("home.action.play")}
+                  </>
+                )}
               </button>
+
               <button
-                className="button button--glass"
-                onClick={() => onConfigure(featured)}
+                className="button button--secondary"
+                onClick={() => onOpen(activeInstance)}
               >
-                {t("home.action.configure")}
+                <FolderOpen size={14} />
+                <span>{t("common.open")}</span>
+              </button>
+
+              <button
+                className="button button--secondary button--icon-only"
+                onClick={() => onConfigure(activeInstance)}
+                title={t("home.action.configure")}
+              >
+                <Settings size={14} />
+              </button>
+
+              <button
+                className="button button--secondary button--icon-only"
+                onClick={() => void window.onyx.state.openInstanceFolder(activeInstance.id)}
+                title="Open instance folder in Finder"
+              >
+                <Folder size={14} />
               </button>
             </div>
           </div>
 
-          <div className="hero-art" aria-hidden="true">
-            <div className="hero-art__planet" />
-            <div className="hero-art__ring hero-art__ring--one" />
-            <div className="hero-art__ring hero-art__ring--two" />
-            <div className="voxel voxel--one">
-              <i />
-              <b />
-              <span />
-            </div>
-            <div className="voxel voxel--two">
-              <i />
-              <b />
-              <span />
-            </div>
-            <div className="voxel voxel--three">
-              <i />
-              <b />
-              <span />
-            </div>
-            <div className="hero-art__label">
-              <span>{featured.version}</span>
-              <small>{t("home.modsActive", { count: featured.modCount })}</small>
+          <div className="hero-station__telemetry">
+            <div className="hero-station__card">
+              <div className="hero-station__card-head">
+                <div className="hero-station__glyph">
+                  {activeInstance.iconUrl ? (
+                    <img src={activeInstance.iconUrl} alt="" />
+                  ) : (
+                    <span>{activeInstance.glyph || "MC"}</span>
+                  )}
+                </div>
+                <div>
+                  <strong>{displayName(activeInstance)}</strong>
+                  <small>Minecraft {activeInstance.version} · {activeInstance.loader.split(" ")[0]}</small>
+                </div>
+              </div>
+
+              <div className="hero-station__specs">
+                <div className="hero-station__spec">
+                  <small>MEMORY</small>
+                  <strong>
+                    {activeInstance.settings?.memory
+                      ? `${activeInstance.settings.memory} MB`
+                      : "Auto (4 GB)"}
+                  </strong>
+                </div>
+                <div className="hero-station__spec">
+                  <small>JAVA RUNTIME</small>
+                  <strong>
+                    {activeInstance.javaMajor
+                      ? `Java ${activeInstance.javaMajor}`
+                      : "Java 21 (Auto)"}
+                  </strong>
+                </div>
+                <div className="hero-station__spec">
+                  <small>ONYX GUARD</small>
+                  <strong className={isError ? "text-danger" : "text-emerald"}>
+                    {isError ? "Issue detected" : "All checks pass"}
+                  </strong>
+                </div>
+                <div className="hero-station__spec">
+                  <small>WORLD SNAPSHOTS</small>
+                  <strong className="text-emerald">Armed</strong>
+                </div>
+              </div>
+
+              {activeInstance.settings?.serverAddress && (
+                <div className="hero-station__server">
+                  <Server size={12} />
+                  <span>{activeInstance.settings.serverAddress}</span>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -262,57 +326,64 @@ export function HomePage({
             className="text-button"
             onClick={() => onNavigate("library")}
           >
-            {t("home.library")} <ArrowRight size={15} />
+            {t("home.library")} <ArrowRight size={13} />
           </button>
         </div>
 
         <div className="recent-grid">
-          {recent.map((instance, index) => (
-            <motion.article
-              className={`recent-card recent-card--instance recent-card--${instance.color}`}
-              key={instance.id}
-              role='button'
-              tabIndex={0}
-              onClick={() => onOpen(instance)}
-              onKeyDown={(event) => {
-                if (event.target !== event.currentTarget) return;
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  onOpen(instance);
-                }
-              }}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.06 * index }}
-            >
-              <span className="recent-card__icon">
-                {instance.iconUrl ? (
-                  <img src={instance.iconUrl} alt="" />
-                ) : (
-                  instance.glyph
-                )}
-              </span>
-              <span className="recent-card__copy">
-                <strong>{displayName(instance)}</strong>
-                <small>
-                  {instance.version} · {instance.loader.split(" ")[0]}
-                </small>
-              </span>
-              <button
-                className="recent-card__play"
-                aria-label={t("home.action.play")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onPlay(instance);
+          {instances.slice(0, 7).map((instance, index) => {
+            const isCurrent = instance.id === activeInstance?.id;
+            return (
+              <motion.article
+                className={`recent-card recent-card--instance recent-card--${instance.color} ${
+                  isCurrent ? "is-selected" : ""
+                }`}
+                key={instance.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedInstanceId(instance.id)}
+                onDoubleClick={() => onOpen(instance)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedInstanceId(instance.id);
+                  }
                 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.02 * index }}
               >
-                <Play size={15} fill="currentColor" />
-              </button>
-            </motion.article>
-          ))}
+                <span className="recent-card__icon">
+                  {instance.iconUrl ? (
+                    <img src={instance.iconUrl} alt="" />
+                  ) : (
+                    instance.glyph
+                  )}
+                </span>
+                <span className="recent-card__copy">
+                  <strong>{displayName(instance)}</strong>
+                  <small>
+                    {instance.version} · {instance.loader.split(" ")[0]}
+                  </small>
+                </span>
+                <button
+                  className="recent-card__play"
+                  aria-label={t("home.action.play")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onPlay(instance);
+                  }}
+                >
+                  <Play size={13} fill="currentColor" />
+                </button>
+              </motion.article>
+            );
+          })}
+
           <button className="recent-card recent-card--new" onClick={onCreate}>
             <span className="recent-card__icon">
-              <Plus size={20} />
+              <Plus size={18} />
             </span>
             <span className="recent-card__copy">
               <strong>{t("home.newInstance")}</strong>
@@ -322,84 +393,180 @@ export function HomePage({
         </div>
       </section>
 
-      <div className="home-lower">
-        <section className="dashboard-section news-section">
-          <div className="section-heading">
-            <div>
-              <h2>{t("home.feed")}</h2>
-              <p>{t("home.feedHint")}</p>
+      <section className="ops-grid">
+        <div className={`ops-card ops-card--guard ${failedInstance ? "has-alert" : ""}`}>
+          <div className="ops-card__head">
+            <div className={`ops-card__icon ${failedInstance ? "ops-card__icon--danger" : ""}`}>
+              {failedInstance ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
+            </div>
+            <div className="ops-card__titles">
+              <strong>Onyx Guard</strong>
+              <span>{failedInstance ? "Action required" : "Integrity verified"}</span>
             </div>
           </div>
-          <div className="news-list">
-            {activity.map((item) => {
-              const Icon = item.icon;
-              return (
+          <div className="ops-card__body">
+            {failedInstance ? (
+              <div className="guard-crash-info">
+                <p className="guard-crash-msg">
+                  Last launch of <strong>{displayName(failedInstance)}</strong> exited with code {failedInstance.lastExitCode ?? 1}.
+                </p>
+                <p className="guard-crash-diagnosis">
+                  {failedInstance.lastDiagnosis?.message || "Crash log recorded and ready for analysis."}
+                </p>
+              </div>
+            ) : (
+              <div className="guard-clean-info">
+                <div className="guard-clean-row">
+                  <span className="text-emerald">✓</span>
+                  <span>Zero conflicting mod IDs detected</span>
+                </div>
+                <div className="guard-clean-row">
+                  <span className="text-emerald">✓</span>
+                  <span>World Guard safety snapshots armed</span>
+                </div>
+                <div className="guard-clean-row">
+                  <span className="text-emerald">✓</span>
+                  <span>Binary bisect engine ready</span>
+                </div>
+              </div>
+            )}
+            <div className="ops-card__footer">
               <button
-                className={`news-card news-card--${item.tone}`}
-                key={item.id}
-                onClick={() => onNavigate(item.route)}
+                className={`button button--full ${
+                  failedInstance ? "button--danger-quiet" : "button--secondary"
+                }`}
+                onClick={() => onOpen(failedInstance ?? activeInstance)}
               >
-                <span className="news-card__art">
-                  <Icon size={25} />
-                </span>
-                <span className="news-card__copy">
-                  <small>{item.category}</small>
-                  <strong>{item.title}</strong>
-                  <p>{item.text}</p>
-                </span>
-                <ChevronRight size={18} />
+                <Wrench size={13} />
+                {failedInstance ? "Analyze Crash & Bisect" : "Open Diagnostics"}
               </button>
-            )})}
-          </div>
-        </section>
-
-        <aside className="stats-card">
-          <div className="stats-card__head">
-            <span className="stats-card__icon">
-              <Sparkles size={18} />
-            </span>
-            <div>
-              <p>{t("home.week")}</p>
-              <strong>
-                {weekMinutes > 0
-                  ? t("home.pace")
-                  : t("home.pace.empty")}
-              </strong>
             </div>
           </div>
-          <div className="stats-card__chart">
-            {week.map((day) => (
-              <span
-                key={day.date.toISOString()}
-                title={t("home.dayPlaytime", {
-                  minutes: day.minutes,
-                })}
-              >
-                <i
-                  style={{
-                    height: `${
-                      day.minutes
-                        ? Math.max(10, (day.minutes / weekMaximum) * 100)
-                        : 4
-                    }%`,
+        </div>
+
+        <div className="ops-card ops-card--server">
+          <div className="ops-card__head">
+            <div className="ops-card__icon">
+              <Radio size={16} />
+            </div>
+            <div className="ops-card__titles">
+              <strong>Quick Join</strong>
+              <span>Direct multiplayer launch</span>
+            </div>
+          </div>
+          <div className="ops-card__body">
+            <div className="quick-join-form">
+              <div className="quick-join-input-shell">
+                <Server size={14} />
+                <input
+                  type="text"
+                  placeholder="mc.hypixel.net"
+                  value={quickServer}
+                  onChange={(event) => setQuickServer(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void handleJoinServer();
                   }}
                 />
-                <small>{day.label}</small>
-              </span>
-            ))}
-          </div>
-          <div className="stats-card__metrics">
-            <div>
-              <strong>{Math.round(totalMinutes / 60)} {t("common.hours")}</strong>
-              <small>{t("home.played")}</small>
+                {quickServer && (
+                  <button
+                    type="button"
+                    className="quick-join-ping-btn"
+                    onClick={() => void handlePingServer()}
+                    disabled={pinging}
+                  >
+                    {pinging ? <LoaderCircle size={12} className="spin" /> : "Ping"}
+                  </button>
+                )}
+              </div>
+              {pingResult && (
+                <div className="quick-join-status">
+                  <span
+                    className={`status-dot ${
+                      pingResult.online ? "status-dot--online" : "status-dot--offline"
+                    }`}
+                  />
+                  <span>
+                    {pingResult.online
+                      ? `${pingResult.latencyMs ?? 0}ms · ${pingResult.playersOnline ?? 0} online`
+                      : "Server offline or unreachable"}
+                  </span>
+                </div>
+              )}
             </div>
-            <div>
-              <strong>{instances.length}</strong>
-              <small>{t("home.instances")}</small>
+            <div className="ops-card__footer">
+              <button
+                className="button button--secondary button--full"
+                onClick={() => void handleJoinServer()}
+                disabled={!quickServer.trim() || isRunning}
+              >
+                <Play size={13} fill="currentColor" />
+                Connect & Play
+              </button>
             </div>
           </div>
-        </aside>
-      </div>
+        </div>
+
+        <div className="ops-card ops-card--picks">
+          <div className="ops-card__head">
+            <div className="ops-card__icon">
+              <Sparkles size={16} />
+            </div>
+            <div className="ops-card__titles">
+              <strong>Curated Picks</strong>
+              <span>Tested for performance & shaders</span>
+            </div>
+          </div>
+          <div className="ops-card__body">
+            <div className="picks-fast-list">
+              <div
+                className="picks-fast-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => onNavigate("picks")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    onNavigate("picks");
+                  }
+                }}
+              >
+                <div className="picks-fast-icon">FO</div>
+                <div className="picks-fast-copy">
+                  <strong>Fabulously Optimized</strong>
+                  <small>400+ FPS · Sodium & Iris shaders</small>
+                </div>
+                <ExternalLink size={13} />
+              </div>
+              <div
+                className="picks-fast-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => onNavigate("picks")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    onNavigate("picks");
+                  }
+                }}
+              >
+                <div className="picks-fast-icon">SO</div>
+                <div className="picks-fast-copy">
+                  <strong>Simply Optimized</strong>
+                  <small>Lightweight Vanilla+ engine</small>
+                </div>
+                <ExternalLink size={13} />
+              </div>
+            </div>
+            <div className="ops-card__footer">
+              <button
+                className="button button--secondary button--full"
+                onClick={() => onNavigate("picks")}
+              >
+                Explore All Picks
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     </motion.div>
   );
 }

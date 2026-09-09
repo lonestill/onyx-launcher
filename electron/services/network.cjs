@@ -296,18 +296,24 @@ async function downloadFile({
 
 async function downloadMany(items, options = {}) {
   const concurrency = Math.max(1, Math.min(options.concurrency || 8, 16));
-  const totals = new Map();
+  const knownTotalBytes = items.reduce((sum, item) => {
+    const s = Number(item.size);
+    return sum + (Number.isFinite(s) && s > 0 ? s : 0);
+  }, 0);
+  const inFlight = new Map();
+  let completedBytes = 0;
   let completed = 0;
   let cursor = 0;
 
   const report = (item, progress) => {
-    totals.set(item.destination, progress);
-    let received = 0;
-    let total = 0;
-    for (const value of totals.values()) {
-      received += value.received || 0;
-      total += value.total || 0;
+    const rec = Number(progress?.received) || 0;
+    inFlight.set(item.destination, rec);
+    let inFlightSum = 0;
+    for (const b of inFlight.values()) {
+      inFlightSum += b;
     }
+    const received = completedBytes + inFlightSum;
+    const total = knownTotalBytes > 0 ? knownTotalBytes : received;
     options.onProgress?.({
       completed,
       count: items.length,
@@ -328,8 +334,10 @@ async function downloadMany(items, options = {}) {
         signal: options.signal,
         onProgress: (progress) => report(item, progress),
       });
+      inFlight.delete(item.destination);
+      completedBytes += Number(item.size) || 0;
       completed += 1;
-      report(item, totals.get(item.destination) || {
+      report(item, {
         received: Number(item.size) || 0,
         total: Number(item.size) || 0,
       });

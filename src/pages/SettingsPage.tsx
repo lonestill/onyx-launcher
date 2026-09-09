@@ -329,9 +329,9 @@ export function SettingsPage({
                 <div className="accent-picker">
                   {(
                     [
-                      ["lime", t("settings.accent.lime"), "#b8f365"],
-                      ["violet", t("settings.accent.violet"), "#9d7bff"],
-                      ["cyan", t("settings.accent.cyan"), "#58e6dd"],
+                      ["lime", t("settings.accent.lime"), "#84cc16"],
+                      ["cyan", t("settings.accent.cyan"), "#06b6d4"],
+                      ["violet", t("settings.accent.violet"), "#8b5cf6"],
                     ] as Array<[Accent, string, string]>
                   ).map(([id, name, color]) => (
                     <button
@@ -347,20 +347,22 @@ export function SettingsPage({
                 </div>
               </SettingsGroup>
               <SettingsGroup title={t("settings.preview")}>
-                <div className={`theme-preview theme-preview--${settings.accent}`}>
-                  <div className="theme-preview__sidebar">
-                    <i />
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                  <div className="theme-preview__body">
-                    <span />
-                    <div>
-                      <i />
-                      <i />
-                      <i />
+                <div className="theme-preview-card">
+                  <div className="theme-preview-card__header">
+                    <div className="theme-preview-card__badge">
+                      <span className="theme-preview-card__dot" />
+                      <span>{settings.accent.toUpperCase()} ACCENT PREVIEW</span>
                     </div>
+                    <span className="theme-preview-card__version">1.21.4 · Fabric</span>
+                  </div>
+                  <div className="theme-preview-card__body">
+                    <div>
+                      <div className="theme-preview-card__title">Fabulously Optimized</div>
+                      <div className="theme-preview-card__meta">64 mods · Sodium · Iris Shaders · Ready</div>
+                    </div>
+                    <button className="button button--primary button--mini" type="button" tabIndex={-1}>
+                      Play Instance
+                    </button>
                   </div>
                 </div>
               </SettingsGroup>
@@ -743,13 +745,25 @@ function PathSetting({
       <span className="setting-row__icon">
         <Icon size={17} />
       </span>
-      <div>
+      <div className="path-setting__main">
         <strong>{title}</strong>
-        <button className="path-setting__path" onClick={onOpen} disabled={!onOpen}>
-          {path}
-        </button>
+        <div className="path-setting__field">
+          <code className="path-setting__path" title={path}>
+            {path}
+          </code>
+          {onOpen && (
+            <button
+              type="button"
+              className="path-setting__open-btn"
+              onClick={onOpen}
+              title="Open folder"
+            >
+              <FolderOpen size={12} />
+            </button>
+          )}
+        </div>
       </div>
-      <button className="button button--mini" onClick={onBrowse}>
+      <button className="button button--secondary button--mini" onClick={onBrowse}>
         {buttonLabel}
       </button>
     </div>
