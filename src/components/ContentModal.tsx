@@ -307,7 +307,7 @@ export function ContentModal({
                             ` · ${entry.versionNumber}`}
                           {" · "}
                           {new Date(entry.createdAt).toLocaleString(
-                            "en-US",
+                            locale,
                             {
                               day: "2-digit",
                               month: "short",

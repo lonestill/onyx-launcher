@@ -9,7 +9,7 @@ export type RouteId =
   | "settings";
 
 export type Accent = "lime" | "violet" | "cyan";
-export type Locale = "en";
+export type Locale = "en" | "ru";
 export type InstanceColor = "lime" | "amber" | "violet" | "cyan" | "rose";
 export type InstanceStatus =
   | "ready"

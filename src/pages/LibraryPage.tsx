@@ -43,7 +43,7 @@ export function LibraryPage({
   onImportBackup,
   onImportSync,
 }: LibraryPageProps) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [compact, setCompact] = useState(false);
@@ -71,10 +71,10 @@ export function LibraryPage({
           .includes(query.toLowerCase()),
       )
       .sort((left, right) => {
-        const result = left.name.localeCompare(right.name, "en");
+        const result = left.name.localeCompare(right.name, locale);
         return sortAscending ? result : -result;
       });
-  }, [filter, instances, query, sortAscending]);
+  }, [filter, instances, query, sortAscending, locale]);
 
   return (
     <motion.div

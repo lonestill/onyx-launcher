@@ -16,6 +16,7 @@ import {
   HardDrive,
   HeartPulse,
   Info,
+  Languages,
   Laptop,
   Palette,
   RefreshCw,
@@ -28,6 +29,7 @@ import {
 import type {
   Accent,
   LauncherSettings,
+  Locale,
   Profile,
   SystemDiagnostics,
 } from "../types";
@@ -67,7 +69,7 @@ export function SettingsPage({
   onMoveDirectory,
   onNotify,
 }: SettingsPageProps) {
-  const { locale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const [section, setSection] = useState<SettingsSection>("general");
   const [saved, setSaved] = useState(false);
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(
@@ -79,6 +81,12 @@ export function SettingsPage({
     await onUpdate(patch);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1400);
+  };
+
+  const changeLanguage = async (next: Locale) => {
+    if (next === locale) return;
+    setLocale(next);
+    await update({ language: next });
   };
 
   const loadDiagnostics = async () => {
@@ -171,6 +179,43 @@ export function SettingsPage({
                 title={t("settings.general.title")}
                 subtitle={t("settings.general.subtitle")}
               />
+
+              <SettingsGroup title={t("settings.language")}>
+                <div className="language-setting">
+                  <span className="setting-row__icon">
+                    <Languages size={17} />
+                  </span>
+                  <div>
+                    <strong>{t("settings.language.title")}</strong>
+                    <p>{t("settings.language.hint")}</p>
+                  </div>
+                  <div
+                    className="language-toggle"
+                    role="radiogroup"
+                    aria-label={t("settings.language.title")}
+                  >
+                    {(
+                      [
+                        ["en", t("settings.language.english")],
+                        ["ru", t("settings.language.russian")],
+                      ] as Array<[Locale, string]>
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="radio"
+                        aria-checked={locale === id}
+                        aria-label={label}
+                        lang={id}
+                        className={locale === id ? "is-active" : ""}
+                        onClick={() => void changeLanguage(id)}
+                      >
+                        {id.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </SettingsGroup>
 
               <SettingsGroup title={t("settings.behavior")}>
                 <ToggleRow
@@ -470,7 +515,7 @@ export function SettingsPage({
                       icon={Database}
                       label={t("settings.diagnostics.data")}
                       value={formatBytes(diagnostics.storage.data.bytes, locale)}
-                      detail={t("settings.diagnostics.fileCount", { count: diagnostics.storage.data.files.toLocaleString("en-US") })}
+                      detail={t("settings.diagnostics.fileCount", { count: diagnostics.storage.data.files.toLocaleString(locale) })}
                       progress={100}
                     />
                   </div>
@@ -550,7 +595,7 @@ export function SettingsPage({
                     <span>
                       {t("settings.report.generated", {
                         time: new Date(diagnostics.generatedAt).toLocaleTimeString(
-                          "en-US",
+                          locale,
                           { hour: "2-digit", minute: "2-digit" },
                         ),
                       })}

@@ -1,9 +1,17 @@
-type FormattingLocale = "en";
+import type { Locale } from "./types";
+
+type FormattingLocale = Locale;
 
 export function formatPlaytime(
   minutes: number,
-  _locale: FormattingLocale = "en",
+  locale: FormattingLocale = "en",
 ) {
+  if (locale === "ru") {
+    if (minutes < 60) return `${minutes} мин`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} ч`;
+    return `${Math.floor(hours / 24)} д ${hours % 24} ч`;
+  }
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} h`;
@@ -12,25 +20,27 @@ export function formatPlaytime(
 
 export function compactNumber(
   value: number,
-  _locale: FormattingLocale = "en",
+  locale: FormattingLocale = "en",
 ) {
-  return new Intl.NumberFormat("en", {
+  return new Intl.NumberFormat(locale, {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
 }
 
-export function formatBytes(
-  value = 0,
-  _locale: FormattingLocale = "en",
-) {
+export function formatBytes(value = 0, locale: FormattingLocale = "en") {
   const units = ["B", "KB", "MB", "GB"];
   if (!value) return `0 ${units[0]}`;
   const index = Math.min(
     Math.floor(Math.log(value) / Math.log(1024)),
     units.length - 1,
   );
-  return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
+  const numeric = value / 1024 ** index;
+  const formatted = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: index ? 1 : 0,
+    minimumFractionDigits: 0,
+  }).format(numeric);
+  return `${formatted} ${units[index]}`;
 }
 
 export function formatSpeed(bytesPerSec: number): string {

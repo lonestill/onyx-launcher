@@ -329,7 +329,7 @@ export function DiscoverPage({
                 {projectType === "modpack"
                   ? t("discover.packsHint")
                   : t("discover.modsHint")}
-                {total > 0 && ` · ${t("discover.found", { count: total.toLocaleString("en-US") })}`}
+                {total > 0 && ` · ${t("discover.found", { count: total.toLocaleString(locale) })}`}
               </p>
             </div>
             <button className="text-button" onClick={() => onNavigate("downloads")}>
