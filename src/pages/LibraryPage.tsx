@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArchiveRestore,
@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { InstanceCard } from "../components/InstanceCard";
+import { useSearchFocus } from "../hooks/useSearchFocus";
 import { useI18n } from "../i18n";
 import type { GameInstance } from "../types";
 
@@ -43,11 +44,13 @@ export function LibraryPage({
   onImportBackup,
   onImportSync,
 }: LibraryPageProps) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [compact, setCompact] = useState(false);
   const [sortAscending, setSortAscending] = useState(true);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSearchFocus(searchRef);
 
   const filtered = useMemo(() => {
     return instances
@@ -71,10 +74,10 @@ export function LibraryPage({
           .includes(query.toLowerCase()),
       )
       .sort((left, right) => {
-        const result = left.name.localeCompare(right.name, "en");
+        const result = left.name.localeCompare(right.name, locale);
         return sortAscending ? result : -result;
       });
-  }, [filter, instances, query, sortAscending]);
+  }, [filter, instances, query, sortAscending, locale]);
 
   return (
     <motion.div
@@ -114,6 +117,7 @@ export function LibraryPage({
         <label className="input-shell input-shell--search">
           <Search size={16} />
           <input
+            ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("library.search")}

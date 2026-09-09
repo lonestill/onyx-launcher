@@ -287,8 +287,8 @@ function sanitizeSettingsPatch(input = {}) {
   if (["lime", "violet", "cyan"].includes(input.accent)) {
     output.accent = input.accent;
   }
-  if (typeof input.language === "string") {
-    output.language = "en";
+  if (input.language === "en" || input.language === "ru") {
+    output.language = input.language;
   }
   if (typeof input.javaPath === "string") {
     output.javaPath = input.javaPath.trim().slice(0, 1024);
@@ -334,7 +334,9 @@ async function loadState() {
     neverPlayed:
       "\u0415\u0449\u0451 \u043d\u0435 \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u043b\u0441\u044f",
   };
-  state.settings.language = "en";
+  if (state.settings.language !== "en" && state.settings.language !== "ru") {
+    state.settings.language = "en";
+  }
   if (state.profile.name === legacyDefaults.player) state.profile.name = "Player";
   if (!state.settings.gameDirectory) {
     state.settings.gameDirectory = path.join(onyxRoot(), "instances");

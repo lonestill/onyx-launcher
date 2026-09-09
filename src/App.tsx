@@ -79,7 +79,7 @@ const InstancePage = lazy(() =>
 );
 
 export default function App() {
-  const { locale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const [state, setState] = useState<LauncherState | null>(null);
   const [route, setRoute] = useState<RouteId>("home");
   const [instanceReturnRoute, setInstanceReturnRoute] =
@@ -388,6 +388,12 @@ export default function App() {
       ? "reduced"
       : "full";
   }, [state?.settings.reducedMotion]);
+  const persistedLanguage = state?.settings.language;
+  useEffect(() => {
+    if (persistedLanguage && persistedLanguage !== locale) {
+      setLocale(persistedLanguage);
+    }
+  }, [persistedLanguage, locale, setLocale]);
 
   async function checkInstance(instance: GameInstance) {
     setInstanceMenu(null);

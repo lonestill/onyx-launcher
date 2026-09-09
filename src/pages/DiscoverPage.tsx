@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Check,
@@ -15,6 +15,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { fallbackProjects } from "../data";
+import { useSearchFocus } from "../hooks/useSearchFocus";
 import { useI18n } from "../i18n";
 import type {
   CatalogProject,
@@ -52,6 +53,8 @@ export function DiscoverPage({
   >("downloads");
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSearchFocus(searchRef);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +155,7 @@ export function DiscoverPage({
         <label className="discover-search">
           <Search size={20} />
           <input
+            ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={
@@ -329,7 +333,7 @@ export function DiscoverPage({
                 {projectType === "modpack"
                   ? t("discover.packsHint")
                   : t("discover.modsHint")}
-                {total > 0 && ` · ${t("discover.found", { count: total.toLocaleString("en-US") })}`}
+                {total > 0 && ` · ${t("discover.found", { count: total.toLocaleString(locale) })}`}
               </p>
             </div>
             <button className="text-button" onClick={() => onNavigate("downloads")}>
