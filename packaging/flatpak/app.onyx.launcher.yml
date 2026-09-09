@@ -1,0 +1,28 @@
+app-id: app.onyx.launcher
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: onyx-launcher
+separate-locales: false
+finish-args:
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --share=network
+  - --device=dri
+  - --socket=pulseaudio
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-download
+  - --filesystem=~/.minecraft:create
+modules:
+  - name: onyx-launcher
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 launch-onyx.sh /app/bin/onyx-launcher
+      - cp -r * /app/
+    sources:
+      - type: archive
+        url: https://github.com/lonestill/onyx-launcher/releases/download/v1.6.8/Onyx-Launcher-1.6.8-linux-x64.tar.gz
+        sha256: cb6f5a3e619342f4455803f7eb7c1ded557346ce9888f63619f5a8b59271c817

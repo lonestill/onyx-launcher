@@ -1,0 +1,20 @@
+pkgbase = onyx-launcher-bin
+	pkgdesc = Modern open-source Minecraft launcher with built-in runtime telemetry and crash diagnostics
+	pkgver = 1.6.8
+	pkgrel = 1
+	url = https://lonestill.github.io
+	arch = x86_64
+	license = MIT
+	depends = gtk3
+	depends = nss
+	depends = alsa-lib
+	depends = libxss
+	optdepends = mangohud: runtime FPS/frametime telemetry overlay on Linux
+	optdepends = java-runtime>=17: Minecraft runtime (can also be downloaded automatically)
+	provides = onyx-launcher
+	conflicts = onyx-launcher
+	options = !strip
+	source = Onyx-Launcher-1.6.8-x86_64.AppImage::https://github.com/lonestill/onyx-launcher/releases/download/v1.6.8/Onyx-Launcher-1.6.8-x86_64.AppImage
+	sha256sums = 37b0b3700c284421a2938408246c605b521803338a3f6a3c155f8c5e287b8503
+
+pkgname = onyx-launcher-bin

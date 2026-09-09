@@ -1,0 +1,52 @@
+# Maintainer: lonestill <admin@lonestill.uk>
+pkgname=onyx-launcher-bin
+pkgver=1.6.8
+pkgrel=1
+pkgdesc="Modern open-source Minecraft launcher with built-in runtime telemetry and crash diagnostics"
+arch=('x86_64')
+url="https://lonestill.github.io"
+license=('MIT')
+depends=('gtk3' 'nss' 'alsa-lib' 'libxss')
+optdepends=(
+  'mangohud: runtime FPS/frametime telemetry overlay on Linux'
+  'java-runtime>=17: Minecraft runtime (can also be downloaded automatically)'
+)
+provides=('onyx-launcher')
+conflicts=('onyx-launcher')
+options=('!strip')
+
+_appimage="Onyx-Launcher-${pkgver}-x86_64.AppImage"
+source=("${_appimage}::https://github.com/lonestill/onyx-launcher/releases/download/v${pkgver}/${_appimage}")
+sha256sums=('37b0b3700c284421a2938408246c605b521803338a3f6a3c155f8c5e287b8503')
+
+prepare() {
+  chmod +x "${_appimage}"
+  ./"${_appimage}" --appimage-extract
+}
+
+package() {
+  install -d "${pkgdir}/opt/${pkgname}"
+  cp -r squashfs-root/* "${pkgdir}/opt/${pkgname}/"
+
+  # Binary symlink
+  install -d "${pkgdir}/usr/bin"
+  ln -s "/opt/${pkgname}/onyx-launcher" "${pkgdir}/usr/bin/onyx-launcher"
+
+  # Desktop launcher entry
+  install -d "${pkgdir}/usr/share/applications"
+  if [ -f squashfs-root/onyx-launcher.desktop ]; then
+    install -Dm644 squashfs-root/onyx-launcher.desktop "${pkgdir}/usr/share/applications/onyx-launcher.desktop"
+    sed -i -E 's|Exec=AppRun|Exec=/usr/bin/onyx-launcher|g' "${pkgdir}/usr/share/applications/onyx-launcher.desktop"
+  fi
+
+  # Icon
+  if [ -f squashfs-root/onyx-launcher.png ]; then
+    install -Dm644 squashfs-root/onyx-launcher.png "${pkgdir}/usr/share/pixmaps/onyx-launcher.png"
+  fi
+
+  # License
+  install -d "${pkgdir}/usr/share/licenses/${pkgname}"
+  if [ -f squashfs-root/LICENSE ]; then
+    install -Dm644 squashfs-root/LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  fi
+}
