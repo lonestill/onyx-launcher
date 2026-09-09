@@ -49,6 +49,7 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "../i18n";
+import { useSearchFocus } from "../hooks/useSearchFocus";
 import type {
   ContentHistoryEntry,
   FlightPerformance,
@@ -194,6 +195,8 @@ export function InstancePage({
   const [selectedPerformanceSessionId, setSelectedPerformanceSessionId] =
     useState<string | null>(null);
   const contentRequestRef = useRef(0);
+  const contentSearchRef = useRef<HTMLInputElement>(null);
+  useSearchFocus(contentSearchRef);
 
   useEffect(() => {
     const nextServers = legacyServers(
@@ -1879,6 +1882,7 @@ export function InstancePage({
             <label className="input-shell input-shell--search">
               <Search size={15} />
               <input
+                ref={contentSearchRef}
                 value={contentQuery}
                 placeholder={t("instancePage.content.search")}
                 onChange={(event) => setContentQuery(event.target.value)}
