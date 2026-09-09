@@ -23,7 +23,6 @@ export function TitleBar({ onSearch }: TitleBarProps) {
           <b />
         </span>
         <span>ONYX</span>
-        <span className="titlebar__channel">{t("titlebar.channel")}</span>
       </div>
 
       <button className="titlebar__search no-drag" onClick={onSearch}>

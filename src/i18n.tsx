@@ -45,7 +45,6 @@ const en = {
   "profile.offline": "Offline account",
   "profile.player": "Player",
 
-  "titlebar.channel": "PRE-RELEASE",
   "titlebar.search": "Find a modpack, mod, or instance…",
   "titlebar.minimize": "Minimize",
   "titlebar.maximize": "Maximize",
