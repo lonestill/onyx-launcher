@@ -1,8 +1,10 @@
 const {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
+  nativeImage,
   Notification,
   shell,
   nativeTheme,
@@ -43,6 +45,7 @@ const {
 const { analyzeMinecraftLog } = require("./services/log-analysis.cjs");
 const { checkInstanceHealth } = require("./services/preflight.cjs");
 const { getOnyxPicks } = require("./services/picks.cjs");
+const screenshotsService = require("./services/screenshots.cjs");
 const {
   recommendInstanceResources,
 } = require("./services/tuning.cjs");
@@ -1309,6 +1312,45 @@ function registerIpc() {
     const directory = path.join(state.settings.gameDirectory, id);
     await fsp.mkdir(directory, { recursive: true });
     return shell.openPath(directory);
+  });
+  ipcMain.handle("instance:screenshots-list", async (_event, id) => {
+    findInstance(id);
+    return screenshotsService.listScreenshots(state.settings.gameDirectory, id);
+  });
+  ipcMain.handle("instance:screenshot-read", async (_event, id, fileName) => {
+    findInstance(id);
+    return screenshotsService.readScreenshotBase64(
+      state.settings.gameDirectory,
+      id,
+      fileName,
+    );
+  });
+  ipcMain.handle("instance:screenshot-copy", async (_event, id, fileName) => {
+    findInstance(id);
+    return screenshotsService.copyScreenshotToClipboard(
+      state.settings.gameDirectory,
+      id,
+      fileName,
+      { clipboard, nativeImage },
+    );
+  });
+  ipcMain.handle("instance:screenshot-show", async (_event, id, fileName) => {
+    findInstance(id);
+    return screenshotsService.showScreenshotInFolder(
+      state.settings.gameDirectory,
+      id,
+      fileName,
+      shell,
+    );
+  });
+  ipcMain.handle("instance:screenshot-delete", async (_event, id, fileName) => {
+    findInstance(id);
+    return screenshotsService.deleteScreenshot(
+      state.settings.gameDirectory,
+      id,
+      fileName,
+      shell,
+    );
   });
   ipcMain.handle("instance:storage-analyze", async (_event, id, force) => {
     findInstance(id);

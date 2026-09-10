@@ -16,6 +16,9 @@ import {
   Coffee,
   Cpu,
   Bug,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FilePlus,
   FileX,
@@ -56,6 +59,7 @@ import type {
   GameInstance,
   InstanceContent,
   InstanceHealthStatus,
+  InstanceScreenshot,
   InstanceServer,
   InstanceStorageReport,
   Locale,
@@ -72,6 +76,7 @@ import "./InstancePage.css";
 type InstanceTab =
   | "overview"
   | "content"
+  | "screenshots"
   | "servers"
   | "performance"
   | "activity";
@@ -194,6 +199,124 @@ export function InstancePage({
   const [selectedPerformanceSessionId, setSelectedPerformanceSessionId] =
     useState<string | null>(null);
   const contentRequestRef = useRef(0);
+
+  const [screenshots, setScreenshots] = useState<InstanceScreenshot[]>([]);
+  const [loadingScreenshots, setLoadingScreenshots] = useState(false);
+  const [activeScreenshot, setActiveScreenshot] =
+    useState<InstanceScreenshot | null>(null);
+  const [activeScreenshotData, setActiveScreenshotData] = useState<
+    string | null
+  >(null);
+  const [copiedScreenshot, setCopiedScreenshot] = useState(false);
+
+  const loadScreenshots = useCallback(async () => {
+    try {
+      setLoadingScreenshots(true);
+      const list = await window.onyx.state.listScreenshots(instance.id);
+      setScreenshots(list);
+    } catch {
+      setScreenshots([]);
+    } finally {
+      setLoadingScreenshots(false);
+    }
+  }, [instance.id]);
+
+  useEffect(() => {
+    void window.onyx.state
+      .listScreenshots(instance.id)
+      .then(setScreenshots)
+      .catch(() => undefined);
+  }, [instance.id]);
+
+  useEffect(() => {
+    if (tab === "screenshots") {
+      void loadScreenshots();
+    }
+  }, [tab, loadScreenshots]);
+
+  useEffect(() => {
+    if (!activeScreenshot) {
+      setActiveScreenshotData(null);
+      setCopiedScreenshot(false);
+      return;
+    }
+    let cancelled = false;
+    window.onyx.state
+      .readScreenshot(instance.id, activeScreenshot.name)
+      .then((data: string) => {
+        if (!cancelled) setActiveScreenshotData(data);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveScreenshotData(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeScreenshot, instance.id]);
+
+  useEffect(() => {
+    if (!activeScreenshot) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setActiveScreenshot(null);
+      } else if (e.key === "ArrowLeft") {
+        const idx = screenshots.findIndex(
+          (s) => s.name === activeScreenshot?.name,
+        );
+        if (idx > 0) setActiveScreenshot(screenshots[idx - 1]);
+      } else if (e.key === "ArrowRight") {
+        const idx = screenshots.findIndex(
+          (s) => s.name === activeScreenshot?.name,
+        );
+        if (idx >= 0 && idx < screenshots.length - 1) {
+          setActiveScreenshot(screenshots[idx + 1]);
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeScreenshot, screenshots]);
+
+  const handleCopyScreenshot = useCallback(
+    async (item: InstanceScreenshot) => {
+      try {
+        await window.onyx.state.copyScreenshot(instance.id, item.name);
+        setCopiedScreenshot(true);
+        onNotify?.("success", t("instancePage.screenshots.copied"), item.name);
+        setTimeout(() => setCopiedScreenshot(false), 2000);
+      } catch {
+        onNotify?.("warning", "Copy failed", "Could not copy to clipboard");
+      }
+    },
+    [instance.id, onNotify, t],
+  );
+
+  const handleShowScreenshot = useCallback(
+    async (item: InstanceScreenshot) => {
+      try {
+        await window.onyx.state.showScreenshot(instance.id, item.name);
+      } catch {
+        onNotify?.("warning", "Open failed", "Could not open folder");
+      }
+    },
+    [instance.id, onNotify],
+  );
+
+  const handleDeleteScreenshot = useCallback(
+    async (item: InstanceScreenshot) => {
+      try {
+        await window.onyx.state.deleteScreenshot(instance.id, item.name);
+        setScreenshots((prev) => prev.filter((s) => s.name !== item.name));
+        if (activeScreenshot?.name === item.name) {
+          setActiveScreenshot(null);
+        }
+        onNotify?.("info", t("instancePage.screenshots.deleted"), item.name);
+      } catch {
+        onNotify?.("warning", "Delete failed", "Could not delete screenshot");
+      }
+    },
+    [activeScreenshot?.name, instance.id, onNotify, t],
+  );
 
   useEffect(() => {
     const nextServers = legacyServers(
@@ -1093,6 +1216,7 @@ export function InstancePage({
           [
             ["overview", Gauge, t("instancePage.tab.overview")],
             ["content", Package, t("instancePage.tab.content")],
+            ["screenshots", Camera, t("instancePage.tab.screenshots")],
             ["servers", Server, t("instancePage.tab.servers")],
             ["performance", Activity, t("instancePage.tab.performance")],
             ["activity", History, t("instancePage.tab.activity")],
@@ -1107,6 +1231,9 @@ export function InstancePage({
             {label}
             {id === "content" && instance.modCount > 0 && (
               <small>{instance.modCount}</small>
+            )}
+            {id === "screenshots" && screenshots.length > 0 && (
+              <small>{screenshots.length}</small>
             )}
             {id === "servers" && servers.length > 0 && (
               <small>{servers.length}</small>
@@ -2303,6 +2430,67 @@ export function InstancePage({
         </section>
       )}
 
+      {tab === "screenshots" && (
+        <section className="instance-section instance-screenshots-section">
+          <div className="instance-section__head">
+            <div>
+              <p>{t("instancePage.tab.screenshots").toUpperCase()}</p>
+              <h2>{t("instancePage.tab.screenshots")}</h2>
+            </div>
+            <div className="instance-section__actions">
+              <button
+                type="button"
+                className="button button--ghost button--small"
+                onClick={() => void loadScreenshots()}
+                disabled={loadingScreenshots}
+              >
+                <RefreshCw
+                  size={14}
+                  className={loadingScreenshots ? "is-spinning" : ""}
+                />
+                {t("instancePage.screenshots.refresh")}
+              </button>
+              <button
+                type="button"
+                className="button button--ghost button--small"
+                onClick={() =>
+                  void window.onyx.state.openInstanceFolder(instance.id)
+                }
+              >
+                <FolderOpen size={14} />
+                {t("instancePage.screenshots.openFolder")}
+              </button>
+            </div>
+          </div>
+
+          {loadingScreenshots && screenshots.length === 0 ? (
+            <div className="instance-screenshots-empty">
+              <LoaderCircle size={28} className="spin" />
+            </div>
+          ) : screenshots.length === 0 ? (
+            <div className="instance-screenshots-empty">
+              <Camera size={40} />
+              <strong>{t("instancePage.screenshots.empty.title")}</strong>
+              <p>{t("instancePage.screenshots.empty.description")}</p>
+            </div>
+          ) : (
+            <div className="instance-screenshots-grid">
+              {screenshots.map((s) => (
+                <ScreenshotCard
+                  key={s.name}
+                  screenshot={s}
+                  instanceId={instance.id}
+                  onSelect={() => setActiveScreenshot(s)}
+                  onCopy={() => void handleCopyScreenshot(s)}
+                  onShow={() => void handleShowScreenshot(s)}
+                  onDelete={() => void handleDeleteScreenshot(s)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {tab === "performance" && (
         <div className="instance-performance-layout">
           <section
@@ -2873,7 +3061,225 @@ export function InstancePage({
           )}
         </div>
       )}
+
+      {activeScreenshot && (
+        <div
+          className="screenshot-lightbox-overlay"
+          onClick={() => setActiveScreenshot(null)}
+        >
+          <div
+            className="screenshot-lightbox"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="screenshot-lightbox__header">
+              <div className="screenshot-lightbox__meta">
+                <span className="screenshot-lightbox__title">
+                  {activeScreenshot.name}
+                </span>
+                <span className="screenshot-lightbox__sub">
+                  {new Date(activeScreenshot.createdAt).toLocaleString(
+                    locale,
+                  )}{" "}
+                  • {formatBytes(activeScreenshot.size)}
+                </span>
+              </div>
+              <div className="screenshot-lightbox__controls">
+                <button
+                  type="button"
+                  className={`button button--small ${
+                    copiedScreenshot ? "button--primary" : "button--ghost"
+                  }`}
+                  onClick={() => void handleCopyScreenshot(activeScreenshot)}
+                  title={t("instancePage.screenshots.copy")}
+                >
+                  {copiedScreenshot ? (
+                    <Check size={14} />
+                  ) : (
+                    <ClipboardCopy size={14} />
+                  )}
+                  {copiedScreenshot
+                    ? t("instancePage.screenshots.copied")
+                    : t("instancePage.screenshots.copy")}
+                </button>
+                <button
+                  type="button"
+                  className="button button--ghost button--small"
+                  onClick={() => void handleShowScreenshot(activeScreenshot)}
+                  title={t("instancePage.screenshots.showInFolder")}
+                >
+                  <FolderOpen size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="button button--danger-ghost button--small"
+                  onClick={() => void handleDeleteScreenshot(activeScreenshot)}
+                  title={t("instancePage.screenshots.delete")}
+                >
+                  <Trash2 size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="button button--ghost button--small"
+                  onClick={() => setActiveScreenshot(null)}
+                  title={t("instancePage.screenshots.close")}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </header>
+
+            <div className="screenshot-lightbox__body">
+              {screenshots.length > 1 && (
+                <button
+                  type="button"
+                  className="screenshot-lightbox__nav screenshot-lightbox__nav--prev"
+                  disabled={
+                    screenshots.findIndex(
+                      (s) => s.name === activeScreenshot.name,
+                    ) <= 0
+                  }
+                  onClick={() => {
+                    const idx = screenshots.findIndex(
+                      (s) => s.name === activeScreenshot.name,
+                    );
+                    if (idx > 0) setActiveScreenshot(screenshots[idx - 1]);
+                  }}
+                  title={t("instancePage.screenshots.prev")}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+              )}
+
+              <div className="screenshot-lightbox__viewport">
+                {activeScreenshotData ? (
+                  <img
+                    src={activeScreenshotData}
+                    alt={activeScreenshot.name}
+                  />
+                ) : (
+                  <div className="screenshot-lightbox__loading">
+                    <LoaderCircle size={32} className="spin" />
+                  </div>
+                )}
+              </div>
+
+              {screenshots.length > 1 && (
+                <button
+                  type="button"
+                  className="screenshot-lightbox__nav screenshot-lightbox__nav--next"
+                  disabled={
+                    screenshots.findIndex(
+                      (s) => s.name === activeScreenshot.name,
+                    ) >=
+                    screenshots.length - 1
+                  }
+                  onClick={() => {
+                    const idx = screenshots.findIndex(
+                      (s) => s.name === activeScreenshot.name,
+                    );
+                    if (idx >= 0 && idx < screenshots.length - 1) {
+                      setActiveScreenshot(screenshots[idx + 1]);
+                    }
+                  }}
+                  title={t("instancePage.screenshots.next")}
+                >
+                  <ChevronRight size={24} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
+  );
+}
+
+function ScreenshotCard({
+  screenshot,
+  instanceId,
+  onSelect,
+  onCopy,
+  onShow,
+  onDelete,
+}: {
+  screenshot: InstanceScreenshot;
+  instanceId: string;
+  onSelect: () => void;
+  onCopy: () => void;
+  onShow: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useI18n();
+  const [thumb, setThumb] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.onyx.state
+      .readScreenshot(instanceId, screenshot.name)
+      .then((data: string) => {
+        if (!cancelled) setThumb(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [instanceId, screenshot.name]);
+
+  return (
+    <div className="screenshot-card" onClick={onSelect}>
+      <div className="screenshot-card__thumb">
+        {thumb ? (
+          <img src={thumb} alt={screenshot.name} loading="lazy" />
+        ) : (
+          <div className="screenshot-card__skeleton">
+            <LoaderCircle size={18} className="spin" />
+          </div>
+        )}
+        <div className="screenshot-card__overlay">
+          <button
+            type="button"
+            className="screenshot-card__action"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCopy();
+            }}
+            title={t("instancePage.screenshots.copy")}
+          >
+            <ClipboardCopy size={13} />
+          </button>
+          <button
+            type="button"
+            className="screenshot-card__action"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShow();
+            }}
+            title={t("instancePage.screenshots.showInFolder")}
+          >
+            <FolderOpen size={13} />
+          </button>
+          <button
+            type="button"
+            className="screenshot-card__action screenshot-card__action--danger"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            title={t("instancePage.screenshots.delete")}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
+      <div className="screenshot-card__info">
+        <span className="screenshot-card__name" title={screenshot.name}>
+          {screenshot.name}
+        </span>
+        <span className="screenshot-card__date">
+          {formatBytes(screenshot.size)}
+        </span>
+      </div>
+    </div>
   );
 }
 

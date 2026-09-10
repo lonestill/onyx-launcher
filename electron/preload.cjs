@@ -22,6 +22,16 @@ contextBridge.exposeInMainWorld("onyx", {
     duplicateInstance: (id) => ipcRenderer.invoke("instance:duplicate", id),
     openInstanceFolder: (id) =>
       ipcRenderer.invoke("instance:open-folder", id),
+    listScreenshots: (id) =>
+      ipcRenderer.invoke("instance:screenshots-list", id),
+    readScreenshot: (id, fileName) =>
+      ipcRenderer.invoke("instance:screenshot-read", id, fileName),
+    copyScreenshot: (id, fileName) =>
+      ipcRenderer.invoke("instance:screenshot-copy", id, fileName),
+    showScreenshot: (id, fileName) =>
+      ipcRenderer.invoke("instance:screenshot-show", id, fileName),
+    deleteScreenshot: (id, fileName) =>
+      ipcRenderer.invoke("instance:screenshot-delete", id, fileName),
     analyzeInstanceStorage: (id, force) =>
       ipcRenderer.invoke("instance:storage-analyze", id, force),
     cleanupInstanceStorage: (id) =>

@@ -153,6 +153,13 @@ export interface InstanceHealthReport {
   checks: InstanceHealthCheck[];
 }
 
+export interface InstanceScreenshot {
+  name: string;
+  path: string;
+  size: number;
+  createdAt: string;
+}
+
 export interface DownloadTask {
   id: string;
   projectId?: string;
@@ -629,6 +636,11 @@ export interface OnyxBridge {
     ): Promise<GameInstance>;
     duplicateInstance(id: string): Promise<GameInstance>;
     openInstanceFolder(id: string): Promise<string>;
+    listScreenshots(id: string): Promise<InstanceScreenshot[]>;
+    readScreenshot(id: string, fileName: string): Promise<string>;
+    copyScreenshot(id: string, fileName: string): Promise<boolean>;
+    showScreenshot(id: string, fileName: string): Promise<boolean>;
+    deleteScreenshot(id: string, fileName: string): Promise<boolean>;
     analyzeInstanceStorage(
       id: string,
       force?: boolean,
