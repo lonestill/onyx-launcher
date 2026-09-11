@@ -47,6 +47,8 @@ export interface LauncherSettings {
   windowWidth: number;
   windowHeight: number;
   fullscreen: boolean;
+  telemetry?: boolean;
+  anonymousClientId?: string;
 }
 
 export interface GameInstance {

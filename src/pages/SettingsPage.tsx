@@ -228,6 +228,13 @@ export function SettingsPage({
                   checked={settings.reducedMotion}
                   onChange={(value) => void update({ reducedMotion: value })}
                 />
+                <ToggleRow
+                  icon={Activity}
+                  title={t("settings.telemetry")}
+                  description={t("settings.telemetryHint")}
+                  checked={settings.telemetry !== false}
+                  onChange={(value) => void update({ telemetry: value })}
+                />
               </SettingsGroup>
             </>
           )}

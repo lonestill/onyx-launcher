@@ -188,6 +188,9 @@ const en = {
   "settings.restartHint": "Takes effect after restart",
   "settings.motion": "Reduce motion",
   "settings.motionHint": "Disable decorative transitions and animations",
+  "settings.telemetry": "Anonymous usage statistics",
+  "settings.telemetryHint":
+    "Send anonymous launch metrics to help us improve Onyx. No personal data, IPs, or paths are collected.",
   "settings.minecraft.subtitle": "Resources, Java, and file management",
   "settings.memory": "MEMORY",
   "settings.memory.title": "Allocated memory",

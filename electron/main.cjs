@@ -46,6 +46,7 @@ const { analyzeMinecraftLog } = require("./services/log-analysis.cjs");
 const { checkInstanceHealth } = require("./services/preflight.cjs");
 const { getOnyxPicks } = require("./services/picks.cjs");
 const screenshotsService = require("./services/screenshots.cjs");
+const { TelemetryService } = require("./services/telemetry.cjs");
 const {
   recommendInstanceResources,
 } = require("./services/tuning.cjs");
@@ -137,6 +138,8 @@ const DEFAULT_STATE = {
     windowWidth: 1280,
     windowHeight: 720,
     fullscreen: false,
+    telemetry: true,
+    anonymousClientId: "",
   },
   instances: [
     {
@@ -164,6 +167,7 @@ let statePath;
 let state = structuredClone(DEFAULT_STATE);
 let authService;
 let javaService;
+const telemetryService = new TelemetryService();
 const runningGames = new Map();
 const installLocks = new Map();
 const installControllers = new Map();
@@ -268,6 +272,7 @@ function sanitizeSettingsPatch(input = {}) {
     "reducedMotion",
     "onboardingComplete",
     "fullscreen",
+    "telemetry",
   ];
   for (const key of booleans) {
     if (typeof input[key] === "boolean") output[key] = input[key];
@@ -341,6 +346,12 @@ async function loadState() {
   if (state.profile.name === legacyDefaults.player) state.profile.name = "Player";
   if (!state.settings.gameDirectory) {
     state.settings.gameDirectory = path.join(onyxRoot(), "instances");
+  }
+  if (typeof state.settings.telemetry !== "boolean") {
+    state.settings.telemetry = true;
+  }
+  if (!state.settings.anonymousClientId) {
+    state.settings.anonymousClientId = telemetryService.ensureAnonymousId();
   }
   for (const instance of state.instances) {
     if (instance.id === "vanilla-start") {
@@ -2508,6 +2519,13 @@ function registerIpc() {
         onSpawn: (pid) => {
           recorder.attach(pid);
           fpsRecorder.attach(pid);
+          void telemetryService.trackGameLaunch({
+            distinctId: state.settings.anonymousClientId,
+            enabled: state.settings.telemetry !== false,
+            instanceId: instance.id,
+            minecraftVersion: instance.version,
+            loader: instance.loader,
+          });
         },
         onLog: (payload) => {
           recorder.ingestLog(payload.text);
@@ -2787,6 +2805,16 @@ if (!gotLock) {
     }
     registerIpc();
     await createWindow();
+
+    void telemetryService.trackAppLaunch({
+      distinctId: state.settings.anonymousClientId,
+      enabled: state.settings.telemetry !== false,
+      version: app.getVersion(),
+      os: process.platform,
+      arch: process.arch,
+      locale: typeof app.getLocale === "function" ? app.getLocale() : undefined,
+      isPackaged: app.isPackaged,
+    });
 
     app.on("activate", async () => {
       if (BrowserWindow.getAllWindows().length === 0) {
