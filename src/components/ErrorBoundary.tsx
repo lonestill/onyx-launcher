@@ -1,6 +1,6 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, useContext, type ErrorInfo, type ReactNode } from "react";
 import { CircleAlert, RefreshCw } from "lucide-react";
-import { useI18n } from "../i18n";
+import { I18nContext } from "../i18n";
 
 export class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -22,8 +22,19 @@ export class ErrorBoundary extends Component<
     return <FatalScreen error={this.state.error} />;
   }
 }
+
+const FATAL_FALLBACKS: Record<string, string> = {
+  "fatal.eyebrow": "Critical failure",
+  "fatal.title": "Onyx encountered an unexpected crash",
+  "fatal.message":
+    "A renderer error interrupted the launcher. You can reload the window to resume.",
+  "fatal.restart": "Reload Onyx",
+};
+
 function FatalScreen({ error }: { error: Error }) {
-  const { t } = useI18n();
+  const i18n = useContext(I18nContext);
+  const t = i18n?.t || ((key: string) => FATAL_FALLBACKS[key] || key);
+
   return (
     <main className="fatal-screen">
       <div className="fatal-screen__icon">

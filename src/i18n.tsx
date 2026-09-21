@@ -58,7 +58,7 @@ interface I18nValue {
   t: (key: TranslationKey, values?: TranslationValues) => string;
 }
 
-const I18nContext = createContext<I18nValue | null>(null);
+export const I18nContext = createContext<I18nValue | null>(null);
 
 export function I18nProvider({
   children,
