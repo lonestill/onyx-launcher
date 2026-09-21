@@ -332,6 +332,25 @@ export function InstancePage({
     [activeScreenshot?.name, instance.id, onNotify, t],
   );
 
+  const handleExportPerformanceCsv = useCallback(async () => {
+    try {
+      const path = await window.onyx.state.exportPerformanceCsv(instance.id);
+      if (path) {
+        onNotify(
+          "success",
+          t("instancePage.performance.exported"),
+          t("instancePage.performance.exportedHint", { path }),
+        );
+      }
+    } catch {
+      onNotify(
+        "warning",
+        t("instancePage.performance.exportFailed"),
+        "",
+      );
+    }
+  }, [instance.id, onNotify, t]);
+
   useEffect(() => {
     const nextServers = legacyServers(
       instance.settings,
@@ -2378,6 +2397,13 @@ export function InstancePage({
                     </h2>
                   </div>
                   <div className="instance-performance-head-actions">
+                    <button
+                      className="button button--mini"
+                      onClick={handleExportPerformanceCsv}
+                    >
+                      <Download size={13} />
+                      {t("instancePage.performance.exportCsv")}
+                    </button>
                     {selectedPerformanceSession && (
                       <button
                         className="button button--mini"

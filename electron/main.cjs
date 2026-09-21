@@ -96,6 +96,9 @@ const {
   createSupportBundle,
 } = require("./services/support-bundle.cjs");
 const {
+  buildPerformanceCsv,
+} = require("./services/performance-csv.cjs");
+const {
   fetchJson,
   downloadFile,
   hashFile,
@@ -1946,6 +1949,35 @@ function registerIpc() {
     } finally {
       installControllers.delete(id);
     }
+  });
+  ipcMain.handle("instance:export-performance-csv", async (_event, id) => {
+    const instance = findInstance(id);
+    const safeName =
+      instance.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim() ||
+      "Onyx instance";
+    const date = new Date().toISOString().slice(0, 10);
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: `Performance — ${instance.name}`,
+      defaultPath: path.join(
+        app.getPath("documents"),
+        `${safeName}-performance-${date}.csv`,
+      ),
+      filters: [{ name: "CSV", extensions: ["csv"] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    const sessions = state.sessions
+      .filter((session) => session.instanceId === id)
+      .sort(
+        (left, right) =>
+          new Date(right.endedAt).getTime() -
+          new Date(left.endedAt).getTime(),
+      );
+    await fsp.writeFile(
+      result.filePath,
+      buildPerformanceCsv(sessions),
+      "utf8",
+    );
+    return result.filePath;
   });
   ipcMain.handle("instance:backup", async (_event, id) => {
     const instance = findInstance(id);

@@ -80,6 +80,8 @@ contextBridge.exposeInMainWorld("onyx", {
       ipcRenderer.invoke("instance:update-preview", id),
     updatePack: (id) => ipcRenderer.invoke("instance:update-pack", id),
     backupInstance: (id) => ipcRenderer.invoke("instance:backup", id),
+    exportPerformanceCsv: (id) =>
+      ipcRenderer.invoke("instance:export-performance-csv", id),
     importBackup: () => ipcRenderer.invoke("instance:import-backup"),
     exportSyncProfile: (id) =>
       ipcRenderer.invoke("instance:sync-export", id),

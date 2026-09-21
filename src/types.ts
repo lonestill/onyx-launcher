@@ -877,6 +877,7 @@ export interface OnyxBridge {
       versionNumber: string | null;
     }>;
     backupInstance(id: string): Promise<BackupResult | null>;
+    exportPerformanceCsv(id: string): Promise<string | null>;
     importBackup(): Promise<GameInstance | null>;
     exportSyncProfile(
       id: string,
