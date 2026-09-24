@@ -4,12 +4,13 @@
 [![Release](https://img.shields.io/github/v/release/lonestill/onyx-launcher?color=22c55e&label=release)](https://github.com/lonestill/onyx-launcher/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Good First Issues](https://img.shields.io/github/issues/lonestill/onyx-launcher/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/lonestill/onyx-launcher/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-2026-ff7518?style=flat&logo=hacktoberfest&logoColor=white)](https://github.com/lonestill/onyx-launcher/issues?q=is%3Aissue+is%3Aopen+label%3Ahacktoberfest)
 [![Scoop](https://img.shields.io/badge/Scoop-lonestill%2Fscoop--onyx-4b89dc)](https://github.com/lonestill/scoop-onyx)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/qHZCehveYp)
 
 A modern, fast, zero-bloat Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Onyx features 1-click universal migration from all major launchers, built-in 3D skin & cape studio, automated crash bisect diagnostics, and isolated instance management.
 
-[Download the latest release (v1.6.11)](https://github.com/lonestill/onyx-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/onyx-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
+[Download the latest release (v1.6.16)](https://github.com/lonestill/onyx-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/onyx-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
 
 ## 💬 Community & Support
 
@@ -48,6 +49,22 @@ Got questions, hit a crash, want to suggest a feature, or test upcoming beta bui
 | ![Onyx Launcher settings and auto-updater](artifacts/settings.png) |
 
 All screenshots are generated from the current English UI with `npm run capture:screenshots`.
+
+
+
+## ⚡ Feature Comparison
+
+| Feature | Onyx Launcher | Prism Launcher | CurseForge App | Modrinth App |
+| :--- | :---: | :---: | :---: | :---: |
+| **Automated Mod Bisect (Find Crash Culprit)** | **✅ Built-in** | ❌ | ❌ | ❌ |
+| **Telemetry Flight Recorder & CSV Benchmark Export** | **✅ Built-in** | ❌ | ❌ | ❌ |
+| **Native Crash Log Diagnostics** | **✅ Deep Analysis** | ⚠️ Basic | ❌ | ❌ |
+| **1-Click Universal Migration (from 8+ launchers)** | **✅ Universal** | ⚠️ Partial | ❌ | ❌ |
+| **Built-in 3D WebGL Skin & Cape Studio** | **✅ Three.js** | ❌ | ❌ | ❌ |
+| **Dual Modrinth + CurseForge Search & 1-Click Install** | **✅ Both** | ✅ Both | ❌ CurseForge only | ❌ Modrinth only |
+| **Discord Rich Presence (RPC)** | **✅ Built-in (IPC)** | 🔌 Third-party | ✅ Built-in | ✅ Built-in |
+| **Full Multi-Language Localization (i18n)** | **✅ EN / RU** | ✅ Community | ⚠️ Partial | ⚠️ Partial |
+| **Zero Bloat & Telemetry Opt-out** | **✅ Fully Offline-safe** | ✅ Clean | ❌ Ads & Overwolf | ✅ Clean |
 
 ## Highlights
 
@@ -107,8 +124,8 @@ scoop install onyx/onyx-launcher
 **Direct download:**
 
 Download an installer or portable archive from the [latest GitHub Release](https://github.com/lonestill/onyx-launcher/releases/latest):
-- NSIS installer: `Onyx.Launcher.Setup.1.6.8.exe`
-- Portable executable: `Onyx.Launcher.1.6.8.exe`
+- NSIS installer: `Onyx.Launcher.Setup.1.6.16.exe`
+- Portable executable: `Onyx.Launcher.1.6.16.exe`
 
 Windows builds are unsigned, so SmartScreen may display a warning on first launch.
 
@@ -124,8 +141,8 @@ yay -S onyx-launcher-bin
 **Direct download:**
 
 Download from the [latest GitHub Release](https://github.com/lonestill/onyx-launcher/releases/latest):
-- AppImage: `Onyx-Launcher-1.6.8-x86_64.AppImage`
-- Portable archive: `Onyx-Launcher-1.6.8-linux-x64.tar.gz`
+- AppImage: `Onyx-Launcher-1.6.16-x86_64.AppImage`
+- Portable archive: `Onyx-Launcher-1.6.16-linux-x64.tar.gz`
 
 
 ### Verify a download
@@ -153,6 +170,22 @@ sha256sum --ignore-missing --check SHA256SUMS-linux.txt
 The command prints `OK` when the downloaded AppImage matches its entry in `SHA256SUMS-linux.txt`.
 
 A matching SHA-256 checksum confirms that the downloaded file matches the published release asset. It does not provide a code signature or prove who created the file.
+
+
+
+## ❓ Frequently Asked Questions (FAQ)
+
+### How do I find which mod crashed my Minecraft instance?
+Onyx Launcher features an automated **Crash Bisect** diagnostic engine. Instead of manually enabling and disabling dozens of mods by hand, open your instance, go to the **Bisect** tab, and start a session. Onyx performs a controlled binary search across test launches, isolating the exact culprit mod or conflict within minutes.
+
+### How do I export Minecraft FPS and frame-time benchmarks to CSV?
+Navigate to your instance, open the **Performance** tab, and click **Export CSV**. Onyx Launcher records FPS, 1% lows, frame times, memory allocation, and CPU usage during sessions, formatting everything into an RFC-4180 compliant CSV file for benchmarking and graphing.
+
+### Can I migrate my worlds and modpacks from CurseForge, Prism, or Modrinth?
+Yes! Onyx includes a **Universal 1-Click Migration** tool. Click the migration icon in your Library or Command Palette, select your current launcher (Prism, CurseForge, Modrinth App, MultiMC, ATLauncher, Feather, or Vanilla), and Onyx imports your instances, worlds, and configs without touching your original files.
+
+### Does Onyx Launcher support Discord Rich Presence?
+Yes, built-in natively via Discord IPC. It shows the instance name, modpack, and elapsed play time with customizable privacy options (such as hiding private server IPs).
 
 ## Contributing
 
