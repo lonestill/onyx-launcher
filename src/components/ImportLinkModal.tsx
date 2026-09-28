@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Download,
   Loader2,
-  Package,
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { GameInstance } from "../types";

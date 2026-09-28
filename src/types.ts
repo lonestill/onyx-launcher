@@ -1170,10 +1170,19 @@ export interface OnyxBridge {
     diffManifest(opts: { instanceId: string }): Promise<PartyDiffResult>;
     setReady(opts?: { ready?: boolean }): Promise<{ success: boolean }>;
     close(): Promise<{ success: boolean }>;
+    setGuestInstance(opts: { instanceId?: string | null }): Promise<{ success: boolean }>;
+    syncMods(opts: {
+      instanceId: string;
+      mods?: Array<{ fileName: string; sha1?: string | null; modrinthId?: string | null; versionId?: string | null; outdatedFileName?: string }>;
+    }): Promise<{ installed: string[]; failed: Array<{ fileName: string; reason: string }> }>;
+    checkE4mc(opts: { instanceId: string }): Promise<{ installed: boolean; supported: boolean; loader: string; version: string; jarName: string | null }>;
+    installE4mc(opts: { instanceId: string }): Promise<{ installed: boolean; jarName: string; versionNumber?: string }>;
+    networkInfo(): Promise<{ lanIp: string; hasVpn: boolean; physicalIp: string | null; virtualIp: string | null }>;
     onRoomUpdate(callback: (state: PartyRoomState | null) => void): () => void;
     onSignal(callback: (signal: PartySignal) => void): () => void;
     onError(callback: (message: string) => void): () => void;
     onLanDetected(callback: (info: { lanPort: number; relayPort: number; hostIp: string; isE4mc?: boolean }) => void): () => void;
+    onSyncProgress(callback: (progress: { index: number; total: number; modName: string; percent: number; status: string }) => void): () => void;
   };
 }
 
@@ -1194,6 +1203,8 @@ export interface PartyRoomState {
   instanceManifest: PartyManifest | null;
   tunnelHost?: string | null;
   tunnelPort?: number | null;
+  hostDisplayName?: string | null;
+  guestProxyPort?: number | null;
   expiresAt: string;
   updatedAt: string;
 }

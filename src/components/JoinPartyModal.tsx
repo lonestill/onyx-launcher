@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Box,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { GameInstance, PartyDiffResult, PartyRoomState } from "../types";
@@ -49,6 +50,9 @@ export function JoinPartyModal({
   const [room, setRoom] = useState<PartyRoomState | null>(null);
   const [diff, setDiff] = useState<PartyDiffResult | null>(null);
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; modName: string; percent: number } | null>(null);
+
   useEffect(() => {
     if (instances.length > 0 && !selectedInstanceId) {
       setSelectedInstanceId(instances[0].id);
@@ -64,6 +68,8 @@ export function JoinPartyModal({
       setRoom(null);
       setDiff(null);
       setError(null);
+      setSyncing(false);
+      setSyncProgress(null);
     }
   }, [initialCode, open]);
 
@@ -72,9 +78,20 @@ export function JoinPartyModal({
     [instances, selectedInstanceId]
   );
 
-  // Re-calculate diff whenever selected instance changes and room is active
+  // Keep room state updated (e.g. when guestProxyPort or peers change)
+  useEffect(() => {
+    const unsub = window.onyx.party.onRoomUpdate((updated) => {
+      if (updated && (!room || updated.code === room.code)) {
+        setRoom(updated);
+      }
+    });
+    return unsub;
+  }, [room]);
+
+  // Synchronize servers.dat injection and recalculate diff whenever selected instance changes
   useEffect(() => {
     if (room && selectedInstanceId) {
+      void window.onyx.party.setGuestInstance({ instanceId: selectedInstanceId });
       void window.onyx.party.diffManifest({ instanceId: selectedInstanceId })
         .then(setDiff)
         .catch(() => setDiff(null));
@@ -90,7 +107,10 @@ export function JoinPartyModal({
     setJoining(true);
     setError(null);
     try {
-      const roomData = await window.onyx.party.join({ code });
+      const roomData = await window.onyx.party.join({
+        code,
+        instanceId: selectedInstanceId || undefined,
+      });
       setRoom(roomData);
 
       // Try auto-selecting matching local instance if host manifest provides version info
@@ -108,6 +128,7 @@ export function JoinPartyModal({
       }
 
       if (targetInstanceId) {
+        void window.onyx.party.setGuestInstance({ instanceId: targetInstanceId });
         const diffData = await window.onyx.party.diffManifest({ instanceId: targetInstanceId }).catch(() => null);
         setDiff(diffData);
       }
@@ -120,6 +141,67 @@ export function JoinPartyModal({
       setJoining(false);
     }
   }, [inputVal, selectedInstanceId, instances, isRu]);
+
+  const handleSyncMods = useCallback(async () => {
+    if (!selectedInstance || !diff) return;
+    const modsToSync = [
+      ...diff.missing,
+      ...diff.outdated.map((o) => ({
+        ...o.remote,
+        outdatedFileName: o.local.fileName,
+      })),
+    ];
+    if (modsToSync.length === 0) return;
+
+    setSyncing(true);
+    try {
+      const unsub = window.onyx.party.onSyncProgress((p) => {
+        setSyncProgress({
+          current: p.index + 1,
+          total: p.total,
+          modName: p.modName,
+          percent: p.percent,
+        });
+      });
+      const res = await window.onyx.party.syncMods({
+        instanceId: selectedInstance.id,
+        mods: modsToSync,
+      });
+      unsub();
+
+      if (res.installed.length > 0) {
+        onNotify(
+          "success",
+          isRu ? "Моды синхронизированы" : "Mods synced",
+          isRu
+            ? `Успешно установлено ${res.installed.length} модов.`
+            : `Successfully installed ${res.installed.length} mods.`,
+        );
+      }
+      if (res.failed.length > 0) {
+        onNotify(
+          "warning",
+          isRu ? "Часть модов не найдена" : "Some mods not found",
+          isRu
+            ? `${res.failed.length} модов не удалось скачать автоматически с Modrinth.`
+            : `${res.failed.length} mods could not be downloaded automatically from Modrinth.`,
+        );
+      }
+
+      // Re-calculate diff
+      const newDiff = await window.onyx.party.diffManifest({ instanceId: selectedInstance.id });
+      setDiff(newDiff);
+    } catch (err) {
+      onNotify(
+        "warning",
+        isRu ? "Ошибка синхронизации" : "Sync error",
+        err instanceof Error ? err.message : String(err),
+      );
+    } finally {
+      setSyncing(false);
+      setSyncProgress(null);
+    }
+  }, [selectedInstance, diff, isRu, onNotify]);
 
   const handleLaunch = () => {
     if (!selectedInstance || !room) return;
@@ -302,6 +384,91 @@ export function JoinPartyModal({
                         ? "Выберите сборку с такой же версией Minecraft и тем же загрузчиком (Fabric/Forge) в выпадающем списке выше."
                         : "Select a local instance with the same Minecraft version and loader (Fabric/Forge) from the dropdown above."}
                     </span>
+                  )}
+
+                  {!diff.loaderMismatch && (diff.missing.length > 0 || diff.outdated.length > 0) && (
+                    <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <button
+                        type="button"
+                        className="button button--secondary"
+                        onClick={() => void handleSyncMods()}
+                        disabled={syncing}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          width: "100%",
+                          padding: "8px 14px",
+                          background: "rgba(163, 230, 53, 0.15)",
+                          borderColor: "rgba(163, 230, 53, 0.4)",
+                          color: "#a3e635",
+                          fontWeight: 600,
+                          fontSize: 12,
+                        }}
+                      >
+                        {syncing ? (
+                          <>
+                            <Loader2 size={14} className="spin" />
+                            <span>
+                              {isRu ? "Синхронизация..." : "Syncing..."}{" "}
+                              {syncProgress
+                                ? `${syncProgress.percent}% (${syncProgress.current}/${syncProgress.total} · ${syncProgress.modName})`
+                                : ""}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Download size={14} />
+                            <span>
+                              {isRu
+                                ? `Синхронизировать моды (${diff.missing.length + diff.outdated.length}) в 1 клик`
+                                : `Sync mods (${diff.missing.length + diff.outdated.length}) in 1 click`}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                      {syncProgress && (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: 4,
+                            background: "rgba(255, 255, 255, 0.1)",
+                            borderRadius: 2,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${syncProgress.percent}%`,
+                              height: "100%",
+                              background: "#a3e635",
+                              transition: "width 0.2s",
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {room.guestProxyPort && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: "var(--text-soft)",
+                        fontSize: "11px",
+                        marginTop: 2,
+                      }}
+                    >
+                      <CheckCircle2 size={13} color="#a3e635" />
+                      <span>
+                        {isRu
+                          ? `Direct Connect: 127.0.0.1:${room.guestProxyPort} (добавлен в servers.dat)`
+                          : `Direct Connect: 127.0.0.1:${room.guestProxyPort} (injected into servers.dat)`}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}

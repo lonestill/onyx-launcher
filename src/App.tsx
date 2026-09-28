@@ -517,7 +517,7 @@ export default function App() {
 
   async function play(
     instance: GameInstance,
-    options?: { multiClient?: boolean; username?: string },
+    options?: { multiClient?: boolean; username?: string; serverAddress?: string },
   ) {
     if (instance.status === "running" && !options?.multiClient) {
       const stopped = await window.onyx.launcher.stop(instance.id);
@@ -1467,10 +1467,11 @@ export default function App() {
           setJoinPartyOpen(false);
           setJoinPartyInitialCode(null);
         }}
-        onJoinSuccess={(inst) => {
+        onJoinSuccess={(inst, room) => {
           setSelectedInstanceId(inst.id);
           setRoute("instance");
-          void play(inst);
+          const directAddress = room?.guestProxyPort ? `127.0.0.1:${room.guestProxyPort}` : undefined;
+          void play(inst, directAddress ? { serverAddress: directAddress } : undefined);
         }}
         onNotify={(tone, title, message) => pushToast(tone, title, message, 6000)}
       />

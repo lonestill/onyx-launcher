@@ -3005,7 +3005,10 @@ function registerIpc() {
           : "onyx-latest.log";
       const launch = await minecraftService.buildLaunch({
         instance,
-        settings: effectiveSettings(instance),
+        settings: {
+          ...effectiveSettings(instance),
+          ...(options?.serverAddress ? { serverAddress: options.serverAddress } : {}),
+        },
         account,
         demo,
         logFileName,
@@ -3653,11 +3656,89 @@ function wirePartySession() {
  * returns: initial roomState
  */
 ipcMain.handle("party:join", async (_event, { code, displayName, instanceId } = {}) => {
-  const roomState = await partySvc.joinRoom({ code: String(code).toUpperCase(), displayName, instanceId });
+  let instanceDirectory = null;
+  if (instanceId) {
+    instanceDirectory = path.join(
+      state.settings.gameDirectory || path.join(onyxRoot(), "instances"),
+      instanceId
+    );
+  }
+  const roomState = await partySvc.joinRoom({
+    code: String(code).toUpperCase(),
+    displayName,
+    instanceId,
+    instanceDirectory,
+  });
 
   wirePartySession();
 
   return roomState;
+});
+
+/**
+ * party:set-guest-instance
+ * Updates selected guest instance and synchronizes servers.dat injection.
+ */
+ipcMain.handle("party:set-guest-instance", async (_event, { instanceId } = {}) => {
+  const instanceDirectory = instanceId
+    ? path.join(state.settings.gameDirectory || path.join(onyxRoot(), "instances"), instanceId)
+    : null;
+  partySvc.setGuestInstance(instanceId, instanceDirectory);
+  return { success: true };
+});
+
+/**
+ * party:sync-mods
+ * 1-click automatic download of missing/outdated mods from host manifest.
+ */
+ipcMain.handle("party:sync-mods", async (_event, { instanceId, mods = [] } = {}) => {
+  const instance = state.instances.find((i) => i.id === instanceId);
+  if (!instance) throw new Error("Instance not found");
+
+  const instanceDirectory = path.join(
+    state.settings.gameDirectory || path.join(onyxRoot(), "instances"),
+    instance.id
+  );
+
+  const result = await partySvc.syncMods({
+    instanceDirectory,
+    mods,
+    onProgress: (p) => {
+      mainWindow?.webContents?.send("party:sync-progress", p);
+    },
+  });
+
+  return result;
+});
+
+/**
+ * party:check-e4mc
+ * Check if e4mc VPN/CGNAT bypass mod is installed.
+ */
+ipcMain.handle("party:check-e4mc", async (_event, { instanceId } = {}) => {
+  const instance = state.instances.find((i) => i.id === instanceId);
+  if (!instance) throw new Error("Instance not found");
+  const instancesRoot = state.settings.gameDirectory || path.join(onyxRoot(), "instances");
+  return partySvc.checkE4mcStatus(instance, instancesRoot);
+});
+
+/**
+ * party:install-e4mc
+ * 1-click installer for e4mc mod.
+ */
+ipcMain.handle("party:install-e4mc", async (_event, { instanceId } = {}) => {
+  const instance = state.instances.find((i) => i.id === instanceId);
+  if (!instance) throw new Error("Instance not found");
+  const instancesRoot = state.settings.gameDirectory || path.join(onyxRoot(), "instances");
+  return partySvc.installE4mc({ instance, instancesRoot });
+});
+
+/**
+ * party:network-info
+ * Returns system network info including physical LAN IP and VPN active status.
+ */
+ipcMain.handle("party:network-info", () => {
+  return partySvc.getNetworkInfo();
 });
 
 /**

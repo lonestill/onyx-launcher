@@ -23,8 +23,11 @@ const dgram = require("node:dgram");
 const os = require("node:os");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const fsp = require("node:fs/promises");
 const path = require("node:path");
-const { fetchJson } = require("./network.cjs");
+const { fetchJson, downloadFile, hashFile } = require("./network.cjs");
+const { injectRoomServer, removeRoomServer } = require("./servers-dat.cjs");
+const { checkE4mcStatus, installE4mc } = require("./e4mc.cjs");
 
 const DEFAULT_HUB_URL = process.env.ONYX_HUB_URL || "https://onyx-launcher-hub.vercel.app";
 const HUB_PARTY_URL = `${DEFAULT_HUB_URL}/api/v1/party`;
@@ -66,19 +69,81 @@ function isClientOnlyMod(fileName) {
   return false;
 }
 
+const VIRTUAL_IFACE_PATTERNS = [
+  /^utun/i,
+  /^tun/i,
+  /^tap/i,
+  /^wg/i,
+  /^ppp/i,
+  /^ipsec/i,
+  /tailscale/i,
+  /wireguard/i,
+  /amnezia/i,
+  /warp/i,
+  /clash/i,
+  /sing-box/i,
+  /v2ray/i,
+  /xray/i,
+  /openvpn/i,
+  /zerotier/i,
+  /hamachi/i,
+  /radmin/i,
+  /docker/i,
+  /veth/i,
+  /br-/i,
+  /vmnet/i,
+  /vbox/i,
+  /vethernet/i,
+  /hyper-v/i,
+  /loopback/i,
+  /dummy/i,
+];
+
+function isVirtualInterface(name) {
+  if (!name) return false;
+  return VIRTUAL_IFACE_PATTERNS.some((pattern) => pattern.test(name));
+}
+
 /**
- * Get active non-internal IPv4 address for local network play.
+ * Inspect system network interfaces, distinguishing physical LAN from virtual/TUN/VPN.
  */
-function getLocalIpAddress() {
+function getNetworkInfo() {
   const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name] || []) {
+  let physicalIp = null;
+  let virtualIp = null;
+  let hasVpn = false;
+
+  for (const [name, ifaceList] of Object.entries(interfaces)) {
+    const isVirt = isVirtualInterface(name);
+    for (const iface of ifaceList || []) {
       if (iface.family === "IPv4" && !iface.internal) {
-        return iface.address;
+        if (iface.address.startsWith("127.") || iface.address.startsWith("169.254.")) {
+          continue;
+        }
+        if (isVirt) {
+          hasVpn = true;
+          if (!virtualIp) virtualIp = iface.address;
+        } else {
+          if (!physicalIp) physicalIp = iface.address;
+        }
       }
     }
   }
-  return "127.0.0.1";
+
+  return {
+    lanIp: physicalIp || virtualIp || "127.0.0.1",
+    hasVpn,
+    physicalIp,
+    virtualIp,
+  };
+}
+
+/**
+ * Get active non-internal IPv4 address for local network play.
+ * Prioritizes physical NIC over virtual TUN VPN to avoid broken LAN invites.
+ */
+function getLocalIpAddress() {
+  return getNetworkInfo().lanIp;
 }
 
 /**
@@ -100,6 +165,7 @@ class RoomSession {
     this.isHost = isHost;
     this.hubUrl = hubUrl;
     this.instanceId = null;
+    this.instanceDirectory = null;
 
     // Live room state (refreshed by polling)
     this.roomState = null;
@@ -200,8 +266,8 @@ class RoomSession {
       const url = `${this.hubUrl}/api/v1/party?code=${encodeURIComponent(this.code)}&peerId=${encodeURIComponent(this.peerId)}`;
       const data = await fetchJson(url);
       if (data && data.success) {
-        this.roomState = data;
-        if (this.onRoomUpdate) this.onRoomUpdate(data);
+        this.roomState = { ...data, guestProxyPort: this.guestProxyPort || null };
+        if (this.onRoomUpdate) this.onRoomUpdate(this.roomState);
         if (!this.isHost && data.tunnelHost && data.tunnelPort) {
           void this.ensureGuestProxyAndBeacon(data.tunnelHost, data.tunnelPort);
         }
@@ -453,8 +519,34 @@ class RoomSession {
       sendBeacon();
       this._beaconTimer = setInterval(sendBeacon, 1500);
       console.log(`[party] Emitting LAN server beacon for Minecraft Multiplayer list`);
+
+      // Inject server into instance servers.dat for instant display in Multiplayer menu
+      if (this.instanceDirectory && this.guestProxyPort) {
+        const hostName = this.roomState?.hostDisplayName || this.code;
+        injectRoomServer(this.instanceDirectory, {
+          code: this.code,
+          address: `127.0.0.1:${this.guestProxyPort}`,
+          hostName,
+        }).catch((err) => console.warn("[party] Could not inject into servers.dat:", err.message));
+      }
     } catch (err) {
       console.warn("[party] Failed to start guest proxy and beacon:", err.message);
+    }
+  }
+
+  setGuestInstance(instanceId, instanceDirectory) {
+    if (this.instanceDirectory && this.instanceDirectory !== instanceDirectory) {
+      removeRoomServer(this.instanceDirectory, this.code).catch(() => {});
+    }
+    this.instanceId = instanceId || null;
+    this.instanceDirectory = instanceDirectory || null;
+    if (this.guestProxyPort && this.instanceDirectory) {
+      const hostName = this.roomState?.hostDisplayName || this.code;
+      injectRoomServer(this.instanceDirectory, {
+        code: this.code,
+        address: `127.0.0.1:${this.guestProxyPort}`,
+        hostName,
+      }).catch((err) => console.warn("[party] Could not inject into servers.dat:", err.message));
     }
   }
 
@@ -463,6 +555,10 @@ class RoomSession {
   async destroy(closeRoom = false) {
     clearTimeout(this._roomPollTimer);
     clearTimeout(this._signalPollTimer);
+
+    if (this.instanceDirectory && this.code) {
+      removeRoomServer(this.instanceDirectory, this.code).catch(() => {});
+    }
 
     if (this._snifferSocket) {
       try { this._snifferSocket.close(); } catch { /**/ }
@@ -682,7 +778,7 @@ async function createRoom({ displayName, instanceId, instanceManifest, hubUrl = 
 }
 
 /** Join an existing room (guest). Returns initial roomState */
-async function joinRoom({ code, displayName, instanceId, hubUrl = DEFAULT_HUB_URL } = {}) {
+async function joinRoom({ code, displayName, instanceId, instanceDirectory, hubUrl = DEFAULT_HUB_URL } = {}) {
   if (_activeSession) await leaveRoom();
 
   const currentPeerId = getActivePeerId();
@@ -701,6 +797,7 @@ async function joinRoom({ code, displayName, instanceId, hubUrl = DEFAULT_HUB_UR
   });
   _activeSession.roomState = data;
   _activeSession.instanceId = instanceId || null;
+  _activeSession.instanceDirectory = instanceDirectory || null;
 
   savePartySession({
     code,
@@ -727,7 +824,11 @@ function startSession({ onRoomUpdate, onSignal, onError, onLanDetected } = {}) {
 
 /** Get current room state (cached from last poll) */
 function getRoomState() {
-  return _activeSession ? _activeSession.roomState : null;
+  if (!_activeSession) return null;
+  return {
+    ..._activeSession.roomState,
+    guestProxyPort: _activeSession.guestProxyPort || null,
+  };
 }
 
 /** Update instance manifest in the room (host only) */
@@ -847,6 +948,136 @@ function diffManifest(localMods, hostManifest) {
   };
 }
 
+/**
+ * Automatically download missing/outdated mods from Modrinth directly into instance mods folder.
+ * @param {{ instanceDirectory: string, mods: Array<any>, onProgress?: Function }} param0
+ */
+async function syncMods({ instanceDirectory, mods = [], onProgress } = {}) {
+  if (!instanceDirectory) throw new Error("instanceDirectory is required");
+  const modsDir = path.join(instanceDirectory, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+
+  const installed = [];
+  const failed = [];
+  const total = mods.length;
+
+  for (let i = 0; i < total; i++) {
+    const mod = mods[i];
+    const modName = mod.fileName || `mod-${i + 1}.jar`;
+    onProgress?.({ index: i, total, modName, percent: Math.round((i / total) * 100), status: "resolving" });
+
+    const targetPath = path.join(modsDir, modName);
+
+    // If file already exists and hash matches, skip
+    try {
+      if (mod.sha1) {
+        const existingSha1 = await hashFile(targetPath, "sha1").catch(() => null);
+        if (existingSha1 === mod.sha1) {
+          installed.push(modName);
+          continue;
+        }
+      }
+    } catch { /**/ }
+
+    let downloadUrl = null;
+    let expectedSha1 = mod.sha1 || null;
+    let expectedSize = mod.size || null;
+
+    // 1. Try Modrinth hash lookup
+    if (mod.sha1) {
+      try {
+        const fileInfo = await fetchJson(`https://api.modrinth.com/v2/version_file/${mod.sha1}?algorithm=sha1`);
+        if (fileInfo && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
+          const matched = fileInfo.files.find((f) => f.hashes?.sha1 === mod.sha1) || fileInfo.files[0];
+          downloadUrl = matched.url;
+          expectedSha1 = matched.hashes?.sha1 || expectedSha1;
+          expectedSize = matched.size || expectedSize;
+        }
+      } catch { /**/ }
+    }
+
+    // 2. Try Modrinth version lookup if versionId exists
+    if (!downloadUrl && mod.versionId) {
+      try {
+        const verInfo = await fetchJson(`https://api.modrinth.com/v2/version/${mod.versionId}`);
+        if (verInfo && Array.isArray(verInfo.files) && verInfo.files.length > 0) {
+          const primary = verInfo.files.find((f) => f.primary) || verInfo.files[0];
+          downloadUrl = primary.url;
+          expectedSha1 = primary.hashes?.sha1 || expectedSha1;
+          expectedSize = primary.size || expectedSize;
+        }
+      } catch { /**/ }
+    }
+
+    // 3. Fallback: Search Modrinth by cleaned name
+    if (!downloadUrl && mod.fileName) {
+      try {
+        const cleanName = mod.fileName
+          .replace(/\.jar(?:\.disabled)?$/i, "")
+          .replace(/[-_]/g, " ")
+          .replace(/\b(fabric|forge|neoforge|quilt|mc\d+(\.\d+)*|\d+(\.\d+)*)\b/gi, "")
+          .trim();
+        if (cleanName.length > 2) {
+          const searchRes = await fetchJson(`https://api.modrinth.com/v2/search?query=${encodeURIComponent(cleanName)}&limit=1`);
+          if (searchRes && Array.isArray(searchRes.hits) && searchRes.hits.length > 0) {
+            const hit = searchRes.hits[0];
+            const versions = await fetchJson(`https://api.modrinth.com/v2/project/${hit.project_id}/version`);
+            if (Array.isArray(versions) && versions.length > 0) {
+              const primary = versions[0].files?.find((f) => f.primary) || versions[0].files?.[0];
+              if (primary?.url) {
+                downloadUrl = primary.url;
+                expectedSha1 = primary.hashes?.sha1 || null;
+              }
+            }
+          }
+        }
+      } catch { /**/ }
+    }
+
+    if (!downloadUrl) {
+      failed.push({ fileName: modName, reason: "not-found" });
+      continue;
+    }
+
+    onProgress?.({ index: i, total, modName, percent: Math.round(((i + 0.3) / total) * 100), status: "downloading" });
+
+    try {
+      await downloadFile({
+        url: downloadUrl,
+        destination: targetPath,
+        sha1: expectedSha1 || undefined,
+        size: expectedSize || undefined,
+        onProgress: (p) => {
+          if (p.total) {
+            const filePct = p.transferred / p.total;
+            onProgress?.({
+              index: i,
+              total,
+              modName,
+              percent: Math.round(((i + filePct) / total) * 100),
+              status: "downloading",
+            });
+          }
+        },
+      });
+
+      // If replacing an outdated mod with a different filename, disable old one
+      if (mod.outdatedFileName && mod.outdatedFileName !== modName) {
+        const oldPath = path.join(modsDir, mod.outdatedFileName);
+        const disabledPath = `${oldPath}.disabled`;
+        await fsp.rename(oldPath, disabledPath).catch(() => {});
+      }
+
+      installed.push(modName);
+    } catch (err) {
+      failed.push({ fileName: modName, reason: err.message });
+    }
+  }
+
+  onProgress?.({ index: total, total, modName: "Done", percent: 100, status: "complete" });
+  return { installed, failed };
+}
+
 module.exports = {
   initStorage,
   restoreSavedSession,
@@ -864,6 +1095,11 @@ module.exports = {
   leaveRoom,
   buildManifest,
   diffManifest,
+  syncMods,
+  getNetworkInfo,
+  checkE4mcStatus,
+  installE4mc,
+  setGuestInstance: (instanceId, instanceDirectory) => _activeSession?.setGuestInstance(instanceId, instanceDirectory),
   ensureGuestProxyAndBeacon: (host, port) => _activeSession?.ensureGuestProxyAndBeacon(host, port),
   ingestGameLog: (text) => _activeSession?.ingestGameLog(text),
   get activePeerId() { return getActivePeerId(); },

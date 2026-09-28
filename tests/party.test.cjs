@@ -10,6 +10,9 @@ const {
   loadPartySession,
   clearPartySession,
   diffManifest,
+  getNetworkInfo,
+  syncMods,
+  checkE4mcStatus,
 } = require("../electron/services/party.cjs");
 
 test("party storage: saves, loads, and clears session metadata on disk", () => {
@@ -113,3 +116,61 @@ test("multi-client: generates distinct offline nicknames and UUIDs for concurren
   assert.notEqual(client1.uuid, client2.uuid);
   assert.equal(client2.name, "Player_2");
 });
+
+test("party getNetworkInfo: returns valid IPv4 and correctly detects network properties", () => {
+  const info = getNetworkInfo();
+  assert.ok(info);
+  assert.ok(typeof info.lanIp === "string");
+  assert.ok(info.lanIp.length > 0);
+  assert.ok(typeof info.hasVpn === "boolean");
+});
+
+test("party syncMods: skips files that already exist with matching sha1", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "onyx-syncmods-test-"));
+  const modsDir = path.join(tmpDir, "mods");
+  fs.mkdirSync(modsDir, { recursive: true });
+
+  try {
+    const dummyModPath = path.join(modsDir, "dummy-1.0.0.jar");
+    fs.writeFileSync(dummyModPath, "fake jar content for testing");
+
+    const crypto = require("node:crypto");
+    const sha1 = crypto.createHash("sha1").update("fake jar content for testing").digest("hex");
+
+    let progressCalls = 0;
+    const res = await syncMods({
+      instanceDirectory: tmpDir,
+      mods: [
+        { fileName: "dummy-1.0.0.jar", sha1 },
+      ],
+      onProgress: () => { progressCalls++; },
+    });
+
+    assert.deepEqual(res.installed, ["dummy-1.0.0.jar"]);
+    assert.deepEqual(res.failed, []);
+    assert.ok(progressCalls > 0);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("party checkE4mcStatus: correctly determines e4mc installation status", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "onyx-e4mc-test-"));
+  try {
+    const instDir = path.join(tmpDir, "test-inst");
+    const modsDir = path.join(instDir, "mods");
+    fs.mkdirSync(modsDir, { recursive: true });
+
+    const status1 = await checkE4mcStatus({ id: "test-inst", loader: "fabric", version: "1.21" }, tmpDir);
+    assert.equal(status1.installed, false);
+    assert.equal(status1.supported, true);
+
+    fs.writeFileSync(path.join(modsDir, "e4mc-fabric-6.2.2.jar"), "dummy");
+    const status2 = await checkE4mcStatus({ id: "test-inst", loader: "fabric", version: "1.21" }, tmpDir);
+    assert.equal(status2.installed, true);
+    assert.equal(status2.jarName, "e4mc-fabric-6.2.2.jar");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+

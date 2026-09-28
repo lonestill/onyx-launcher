@@ -282,6 +282,11 @@ contextBridge.exposeInMainWorld("onyx", {
     diffManifest: (opts) => ipcRenderer.invoke("party:diff-manifest", opts),
     setReady: (opts) => ipcRenderer.invoke("party:set-ready", opts),
     close: () => ipcRenderer.invoke("party:close"),
+    setGuestInstance: (opts) => ipcRenderer.invoke("party:set-guest-instance", opts),
+    syncMods: (opts) => ipcRenderer.invoke("party:sync-mods", opts),
+    checkE4mc: (opts) => ipcRenderer.invoke("party:check-e4mc", opts),
+    installE4mc: (opts) => ipcRenderer.invoke("party:install-e4mc", opts),
+    networkInfo: () => ipcRenderer.invoke("party:network-info"),
     onRoomUpdate: (callback) => {
       const listener = (_event, payload) => callback(payload);
       ipcRenderer.on("party:room-update", listener);
@@ -301,6 +306,11 @@ contextBridge.exposeInMainWorld("onyx", {
       const listener = (_event, payload) => callback(payload);
       ipcRenderer.on("party:lan-detected", listener);
       return () => ipcRenderer.removeListener("party:lan-detected", listener);
+    },
+    onSyncProgress: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("party:sync-progress", listener);
+      return () => ipcRenderer.removeListener("party:sync-progress", listener);
     },
   },
 });
