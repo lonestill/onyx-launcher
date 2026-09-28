@@ -1,83 +1,119 @@
-# Scope Launcher — Roadmap & Architecture Plan
+# Scope Launcher — Crash Auto-Fix Engine Roadmap & TODO
 
-## v2.0.0 Headliner: Scope Party & P2P Multiplayer System
-
-Цель: предоставить игрокам возможность играть вместе в любые кастомные сборки в 1 клик прямо из лаунчера без аренды серверов, без Hamachi/Radmin, без ручного проброса портов (NAT traversal) и без конфликтов версий модов.
-
-### ✅ Готовность модулей (Release Candidate)
-- [x] **Zero-Config Virtual LAN & P2P Tunnels**: WebRTC DataChannels, e4mc fallback, STUN/TURN, UDP Beacon, direct `servers.dat` injection.
-- [x] **Scope Rooms UI & Deep Linking**: `scope://party/CODE` deep links with legacy `onyx://` backward compatibility.
-- [x] **1-Click Join («Залететь к хосту»)**: Прямой запуск клиента Minecraft с аргументами `--server 127.0.0.1 --port <guestProxyPort>`, минуя сетевое меню.
-- [x] **In-Room Modpack Sync**: Быстрый diff манифестов хоста и гостя, докачка недостающих модов в 1 клик.
-- [x] **Scope Hub Web Landing**: `/party/[code]` SSR-лендинг инвайтов с метатегами и авторедиректом.
-- [x] **Полная локализация (i18n)**: 100% паритет `ru.ts` и `en.ts` (1292 ключа), чистый брендинг Scope Room.
+This document tracks all implemented and planned automated crash diagnosis and 1-click auto-fix mechanisms in Scope Launcher (`electron/services/crash-autofix.cjs`).
 
 ---
 
-### Модуль 1: Комнаты и P2P-туннели (Scope Rooms & Zero-Config Virtual LAN)
+## 🎯 Current Status
 
-#### 1. Архитектура туннеля (User-Space, No Drivers)
-- **Отказ от виртуальных сетевых адаптеров**: Никаких TAP/Wintun драйверов, требующих прав администратора (UAC) на Windows или `sudo/kext` на macOS/Linux.
-- **Транспорт**:
-  - Основной: встроенный user-space прокси-агент (e4mc протокол / STUN + WebRTC DataChannels / WebSocket Relay через Scope Hub).
-  - Локальный fallback: UPnP/PMP автоматическое открытие портов на роутере хоста, если поддерживается сетью.
-  - Резервный relay: если оба пира за симметричным жестким NAT (CGNAT), трафик маршрутизируется через легковесный зашифрованный ретранслятор Scope Hub с минимальной задержкой.
-
-#### 2. Интерфейс комнат («Scope Party»)
-- **Создание лобби**:
-  - Хост нажимает «Создать комнату» в сайдбаре или на карточке сборки.
-  - Генерируется короткий 6-значный мнемонический код (например, `FOX-429`) и диплинк `scope://party/FOX-429` (с веб-редиректом `hub.onyxlauncher.com/party/FOX-429`).
-- **Состояние участников в реальном времени**:
-  - WebSocket-сигналинг через Scope Hub: комната держит список пиров, аватарки, статус готовности, пинг между хостом и пирами.
-  - Статусы: `В лаунчере`, `Синхронизация модов`, `Готов`, `В игре`.
-- **Автоматический запуск и коннект (1-Click Join)**:
-  - Когда хост открывает мир для сети («Открыть для сети» / «Open to LAN»), агент хоста автоматически детектирует локальный открытый порт (порт 25565 или динамический).
-  - Агент поднимает туннель и отправляет виртуальный адрес в сигналинг комнаты.
-  - У всех участников в комнате статус меняется на «Хост в игре: [Мир]», и кнопка запуска превращается в зелёную **«Залететь к хосту»**.
-  - При клике лаунчер запускает клиент Minecraft с параметрами `--server <p2p-tunnel-host> --port <p2p-tunnel-port>`, минуя меню сетевой игры и ручной ввод IP.
-
----
-
-### Модуль 2: Синхронизация сборки в комнате (In-Room Modpack Sync)
-
-#### 1. Проблема
-Самая частая причина срыва совместной игры — несоответствие модов (*ModResolutionException*, несовпадающие версии Fabric/Forge, отсутствующие клиент-серверные библиотеки или расхождения в конфигах).
-
-#### 2. Механизм верификации
-- Хост привязывает к комнате текущий активный инстанс (например, «Create: Astral 1.20.1»).
-- Формируется легковесный снимок сборки хоста (`RoomManifest`):
-  - `loader`: загрузчик и его точная версия (например, `fabric-0.16.5`).
-  - `minecraftVersion`: версия игры (`1.20.1`).
-  - `mods`: массив `{ fileName, sha1, modId, versionNumber, modrinthId, curseforgeId }`.
-  - `syncConfigs`: контрольные суммы ключевых файлов из папки `config/`.
-- Сигналинг передаёт `RoomManifest` участникам комнаты при входе или при изменении сборки хостом.
-
-#### 3. Дифференциальный анализ на стороне клиента
-- Лаунчер участника мгновенно сравнивает локальный инстанс с манифестом хоста:
-  - **Identical**: все моды и версии 1-в-1 -> статус «Сборка синхронизирована» (зелёный чек).
-  - **Mismatched**: выводится список различий (например: *3 мода не хватает, 1 мод устарел, Fabric Loader 0.15 вместо 0.16*).
-  - **No Instance**: у игрока вообще нет такой сборки -> лаунчер предлагает создать изолированный инстанс-клон хоста.
-
-#### 4. Безопасная синхронизация в 1 клик
-- Кнопка **«Синхронизировать со сборкой хоста»**:
-  - Докачивает недостающие моды напрямую с Modrinth / CurseForge API по хешам/ID.
-  - Если в сборке хоста есть приватные/кастомные моды или конфиги (отсутствующие в каталогах), они безопасно передаются напрямую от хоста к участнику через установленный P2P-канал.
-  - Устаревшие версии отключаются или перемещаются в бэкап.
-  - **Изоляция**: пользовательские сейвы, локальные настройки графики/звука (`options.txt`) и бинды клавиш **не затираются**.
-- После завершения участник получает статус `Готов к игре`.
+### ✅ Implemented (Core & Extended)
+1. **Memory Starvation (`increase-memory`)**:
+   - Root Cause: `OutOfMemoryError: Java heap space` or `GC overhead limit exceeded`.
+   - Action: Computes safe RAM increase (+2 GB, respecting total physical RAM limit) and saves to instance configuration with user confirmation.
+2. **Missing Indium for Sodium (`install-indium`)**:
+   - Root Cause: Sodium loaded with Fabric Rendering API dependent mods without Indium (`IndiumException`).
+   - Action: Queries Modrinth API for compatible Indium build for current Minecraft version and installs directly in 1 click.
+3. **Java Version Mismatch (`switch-java`)**:
+   - Root Cause: `UnsupportedClassVersionError` (class file 65.0 -> Java 21, 61.0 -> Java 17, 60.0 -> Java 16, 52.0 -> Java 8) or MC 1.20.5+ running on Java 17.
+   - Action: Clears obsolete custom java path, switches instance to matching Eclipse Temurin runtime.
+4. **Invalid / Obsolete JVM Arguments (`reset-jvm-args`)**:
+   - Root Cause: `Unrecognized VM option` (e.g. `-XX:+UseConcMarkSweepGC`), `Could not create the Java Virtual Machine`.
+   - Action: Clears invalid flags and restores verified default JVM arguments.
+5. **Corrupted ZIP / JAR Archive (`clean-corrupted-file`)**:
+   - Root Cause: `ZipException: zip END header not found`, truncated jar file.
+   - Action: Deletes corrupted JAR archive and triggers full asset/library integrity verification.
+6. **Deep JAR Manifest Inspection (`disable-culprit-mod`)**:
+   - Root Cause:
+     - Loader Mismatch: Forge mod in Fabric instance or vice-versa (inspected via `fabric.mod.json`, `mods.toml`, `neoforge.mods.toml`).
+     - Version Mismatch: Mod compiled for MC 1.16/1.19 placed in MC 1.20+ instance.
+     - Known Culprit: Explicit crash report suspected culprit mod.
+   - Action: Safely disables culprit file (`.jar.disabled`).
+7. **Missing Dependency Auto-Downloader (`install-missing-dependency`)**:
+   - Root Cause: Unmet dependencies (`requires {fabric-api}`, `fabric-language-kotlin`, `cloth-config`, `architectury`, `yacl`, etc.).
+   - Action: Resolves missing mod ID, matches instance loader and Minecraft version via Modrinth API, and downloads companion library.
+8. **Duplicate Mod Elimination (`remove-duplicate-mod`)**:
+   - Root Cause: `DuplicateModsFoundException`, multiple versions of same mod or browser download copies (e.g. `mod (1).jar`).
+   - Action: Identifies duplicate mod ID, compares timestamps/names, and disables the copy.
+9. **Mutually Exclusive Mod Conflicts (`resolve-mod-conflict`)**:
+   - Root Cause: Incompatible mods (OptiFine + Sodium/Iris, Phosphor + Starlight, Rubidium + Embeddium).
+   - Action: Detects conflict pair and disables incompatible mod to avoid hard mixin crashes.
+10. **Corrupted Config Recovery (`reset-corrupted-config`)**:
+    - Root Cause: `JsonSyntaxException: MalformedJsonException`, `ParsingException`, or `ConfigException` in `config/*.json` / `*.toml`.
+    - Action: Renames damaged config to `*.bak` and allows game to regenerate clean default configuration.
 
 ---
 
-## Бэклог / Post-v2 Candidates
+## 📋 Comprehensive Backlog: All Conceivable Auto-Fix Methods
 
-### 1. Экспорт сборок в стандартный `.mrpack` (Modrinth) и CurseForge `.zip`
-- Экспорт пользовательских инстансов с генерацией `modrinth.index.json` / `manifest.json` для прямой публикации на Modrinth.com и CurseForge.
-- Кросс-платформенная совместимость с Prism Launcher и Modrinth App.
+### Category A: Graphics, Display & OpenGL Drivers
+- [ ] **A1. Shaderpack Startup Failure (`disable-active-shaderpack`)**:
+  - *Trigger*: Crash during shader compilation or pipeline setup with Iris/Oculus/OptiFine (`Program link failed`, `Composite shader error`).
+  - *Fix*: Set `shaderPack=OFF` in `optionsiris.txt` / `options.txt` without deleting the user-downloaded shader files.
+- [ ] **A2. OpenGL Context Creation Failure / GLFW Error 65542 (`repair-opengl-context`)**:
+  - *Trigger*: `GLFW error 65542: WGL: The driver does not appear to support OpenGL`, or `Pixel format not accelerated`.
+  - *Fix*:
+    - Windows: Inject software Mesa3D (`opengl32.dll`) fallback or add `-Dsun.java2d.opengl=false`.
+    - Detect multi-GPU laptops and advise high-performance GPU preference.
+- [ ] **A3. Linux Wayland / GLX Display Crash (`apply-wayland-fix`)**:
+  - *Trigger*: `GLFW error 65543: GLX: Failed to create context` or Wayland compositor termination.
+  - *Fix*: Inject environment variable `GLFW_PLATFORM=x11` or JVM arg `-Dorg.lwjgl.glfw.libname=libglfw.so.3`.
+- [ ] **A4. Corrupted Video Options / Out-of-Bounds Display Resolution (`reset-video-options`)**:
+  - *Trigger*: Game crashes on window initialization (`Display.create()` or `BadWindow`) due to stale resolution on unplugged monitor.
+  - *Fix*: Reset `fullscreen:false`, `overrideWidth:854`, `overrideHeight:480`, `guiScale:0` in `options.txt`.
+- [ ] **A5. Outdated Resource Pack Texture Stitch Overflow (`disable-active-resourcepacks`)**:
+  - *Trigger*: `TextureAtlasException` or `OutOfMemoryError: Stitching texture atlas` on high-res 512x packs.
+  - *Fix*: Reset `resourcePacks:[]` in `options.txt`.
 
-### 2. Дифференциальный апдейтер расшаренных сборок Scope Hub
-- Фоновое отслеживание обновлений сборок, скачанных по внешним ссылкам `scope://sync/...`.
-- Модальное окно diff-апдейта без затирания локального прогресса.
+---
 
-### 3. Менеджер миров (World Manager & Cloud Saves)
-- Просмотр миров инстанса с метаданными, датой и размером.
-- 1-клик экспорт в чистый `.zip` (без lock-файлов) и удобный импорт.
+### Category B: Mod Loader & Runtime Versions
+- [ ] **B1. Outdated Mod Loader Version (`upgrade-loader-version`)**:
+  - *Trigger*: `Mod requires fabricloader >=0.16.5, currently 0.15.11` or `neoforge version too low`.
+  - *Fix*: Auto-update instance `loaderVersion` in instance metadata to newest compatible release without reinstalling whole pack.
+- [ ] **B2. Architecture Incompatibility on macOS Apple Silicon (`switch-arm64-java`)**:
+  - *Trigger*: `UnsatisfiedLinkError: ...liblwjgl.dylib (mach-o file, but is an incompatible architecture (have x86_64, need arm64))`.
+  - *Fix*: Switch instance from Rosetta x86_64 Java to native ARM64 Eclipse Temurin.
+- [ ] **B3. Missing JVM Module Directives (`inject-java-module-flags`)**:
+  - *Trigger*: `InaccessibleObjectException: Unable to make protected final java.lang.Class ... accessible to module` (Java 16+ reflection barrier).
+  - *Fix*: Auto-inject required `--add-opens` flags to JVM arguments (e.g. `--add-opens java.base/java.lang=ALL-UNNAMED`).
+- [ ] **B4. JavaFX / Missing Native OpenJFX (`install-openjfx`)**:
+  - *Trigger*: `NoClassDefFoundError: javafx/...` (mods with embedded WebKit or media players).
+  - *Fix*: Download OpenJFX modular SDK or switch to full Zulu FX JDK.
+
+---
+
+### Category C: World Data, Saves & Entity Ticking
+- [ ] **C1. Erroring Entity / Tile Entity Ticking Crash (`enable-forge-entity-removal`)**:
+  - *Trigger*: `java.lang.NullPointerException: Ticking entity` / `Ticking block entity` at chunk coordinates (X, Y, Z).
+  - *Fix*:
+    - Forge: Set `removeErroringEntities = true` and `removeErroringTileEntities = true` in `forge.cfg` / `forge-common.toml`.
+    - Fabric: Propose installing Neruina / SafeTicking companion mod.
+- [ ] **C2. Corrupted Playerdata NBT (`quarantine-playerdata`)**:
+  - *Trigger*: `Failed to load player data: Corrupt NBT tag` or `ClassCastException` reading `playerdata/<uuid>.dat`.
+  - *Fix*: Back up corrupted `<uuid>.dat` to `<uuid>.dat.bak` and create clean inventory seed.
+- [ ] **C3. World Decorator Loop Crash (`restore-world-snapshot`)**:
+  - *Trigger*: `RuntimeException: Already decorating!!` or cascading worldgen chunk crash.
+  - *Fix*: Offer 1-click restore from latest World Guard automatic world snapshot.
+
+---
+
+### Category D: System, File Locks & Process State
+- [ ] **D1. Zombie Minecraft Process Holding File Lock (`kill-zombie-process`)**:
+  - *Trigger*: `FileAlreadyExistsException`, `AccessDeniedException` on `session.lock`, `logs/latest.log` locked by another process.
+  - *Fix*: Locate lingering background `javaw.exe` / `java` PID associated with the instance and safely terminate it, clearing orphan `session.lock`.
+- [ ] **D2. Corrupted Mojang Asset / Library Cache (`repair-instance-assets`)**:
+  - *Trigger*: `FileNotFoundException: assets/indexes/1.20.json`, hash mismatch on `client.jar`.
+  - *Fix*: Re-download official assets index and libraries with SHA-1 validation.
+- [ ] **D3. Stale Temporary Update Files (`cleanup-temp-install-files`)**:
+  - *Trigger*: Unfinished mod update left `mod.jar.tmp` or `.scope-download`.
+  - *Fix*: Purge incomplete download fragments from `mods/`.
+
+---
+
+### Category E: Modpack Manifest Reconciliation
+- [ ] **E1. Untracked Rogue Mods in Strict Modpacks (`reconcile-modpack-manifest`)**:
+  - *Trigger*: Modpack updated from CurseForge/Modrinth but manually added user mods cause incompatibility.
+  - *Fix*: Compare current `mods/` contents with original modpack manifest, flag untracked mods, and offer 1-click quarantine to `mods_disabled/`.
+- [ ] **E2. Client-Only Mod on Server or Vice-Versa (`disable-environment-mismatched-mod`)**:
+  - *Trigger*: `NoClassDefFoundError: net/minecraft/client/Minecraft` in dedicated server environment.
+  - *Fix*: Inspect manifest environment tag (`client` vs `server`) and disable mismatched mod.
