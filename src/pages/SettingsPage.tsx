@@ -384,7 +384,7 @@ export function SettingsPage({
                 />
               </SettingsGroup>
 
-              <SettingsGroup title="App Updates">
+              <SettingsGroup title={t("settings.appUpdates.title")}>
                 <div className="setting-row">
                   <span className="setting-row__icon">
                     <RefreshCw size={17} className={checkingUpdate ? "spin" : ""} />
@@ -393,16 +393,16 @@ export function SettingsPage({
                     <strong>Onyx Launcher v{packageMetadata.version}</strong>
                     <p>
                       {checkingUpdate
-                        ? "Checking for updates…"
+                        ? t("settings.appUpdates.checking")
                         : updateReady
-                        ? "Update downloaded and ready to install"
+                        ? t("settings.appUpdates.ready")
                         : downloadingUpdate
-                        ? "Downloading update…"
+                        ? t("settings.appUpdates.downloading")
                         : updateInfo?.updateAvailable
-                        ? `New version available: v${updateInfo.latestVersion}`
+                        ? t("settings.appUpdates.available", { version: updateInfo.latestVersion })
                         : updateInfo
-                        ? "Onyx Launcher is up to date"
-                        : "Check GitHub releases for the latest version"}
+                        ? t("settings.appUpdates.upToDate")
+                        : t("settings.appUpdates.checkGithub")}
                     </p>
                     {updateError && (
                       <small style={{ color: "var(--danger, #ef4444)" }}>{updateError}</small>
@@ -415,7 +415,7 @@ export function SettingsPage({
                     disabled={checkingUpdate || downloadingUpdate}
                   >
                     {checkingUpdate && <LoaderCircle size={14} className="spin" />}
-                    <span>{checkingUpdate ? "Checking…" : "Check for Updates"}</span>
+                    <span>{checkingUpdate ? t("settings.appUpdates.btnChecking") : t("settings.appUpdates.btnCheck")}</span>
                   </button>
                 </div>
 
@@ -442,7 +442,7 @@ export function SettingsPage({
                               marginLeft: 8,
                             }}
                           >
-                            • Released {new Date(updateInfo.publishedAt).toLocaleDateString()}
+                            • {t("settings.appUpdates.released", { date: new Date(updateInfo.publishedAt).toLocaleDateString() })}
                           </span>
                         )}
                       </div>
@@ -455,7 +455,7 @@ export function SettingsPage({
                             onClick={handleDownloadUpdate}
                           >
                             <Download size={14} />
-                            <span>Download & Install</span>
+                            <span>{t("settings.appUpdates.btnDownload")}</span>
                           </button>
                         )}
                         {updateReady && (
@@ -465,7 +465,7 @@ export function SettingsPage({
                             onClick={handleApplyUpdate}
                           >
                             <Check size={14} />
-                            <span>Restart & Apply Update</span>
+                            <span>{t("settings.appUpdates.btnRestart")}</span>
                           </button>
                         )}
                       </div>
@@ -1199,6 +1199,7 @@ function PathSetting({
   onBrowse: () => void;
   onOpen?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="path-setting">
       <span className="setting-row__icon">
@@ -1215,7 +1216,7 @@ function PathSetting({
               type="button"
               className="path-setting__open-btn"
               onClick={onOpen}
-              title="Open folder"
+              title={t("settings.openFolder")}
             >
               <FolderOpen size={12} />
             </button>

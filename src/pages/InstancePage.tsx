@@ -75,7 +75,7 @@ import type {
   PlaySession,
   WorldSnapshot,
 } from "../types";
-import { formatBytes, formatPlaytime } from "../utils";
+import { formatBytes, formatPlaytime, isBuiltinPureGame } from "../utils";
 import "./InstancePage.css";
 
 type InstanceTab =
@@ -1284,7 +1284,7 @@ export function InstancePage({
   );
   const updates = content.filter((item) => item.update).length;
   const displayName =
-    instance.id === "vanilla-start" && instance.name === "Pure Game"
+    isBuiltinPureGame(instance)
       ? t("home.defaultName")
       : instance.name;
 

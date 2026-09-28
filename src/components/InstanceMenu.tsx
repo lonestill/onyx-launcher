@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { GameInstance } from "../types";
+import { isBuiltinPureGame } from "../utils";
 
 interface InstanceMenuProps {
   instance: GameInstance | null;
@@ -82,7 +83,7 @@ export function InstanceMenu({
                 )}
               </span>
               <div>
-                <h2>{instance.id === "vanilla-start" && instance.name === "Pure Game" ? t("home.defaultName") : instance.name}</h2>
+                <h2>{isBuiltinPureGame(instance) ? t("home.defaultName") : instance.name}</h2>
                 <p>
                   Minecraft {instance.version} · {instance.loader}
                 </p>

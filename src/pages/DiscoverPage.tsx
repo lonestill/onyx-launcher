@@ -76,17 +76,25 @@ export function DiscoverPage({
     [instances, targetInstanceId],
   );
 
+  const prevTargetIdRef = useRef<string | null>(targetInstanceId);
   useEffect(() => {
     if (targetInstance) {
       if (targetInstance.version) {
         setGameVersion(targetInstance.version);
       }
-      if (targetInstance.loader && targetInstance.loader !== "vanilla") {
-        setLoader(targetInstance.loader.toLowerCase());
+      const ldr = targetInstance.loader?.toLowerCase();
+      if (ldr && ldr !== "vanilla") {
+        setLoader(ldr);
+      } else {
+        setLoader("");
       }
       setProjectType((curr) => (curr === "modpack" ? "mod" : curr));
+    } else if (prevTargetIdRef.current && !targetInstanceId) {
+      setGameVersion("");
+      setLoader("");
     }
-  }, [targetInstance]);
+    prevTargetIdRef.current = targetInstanceId;
+  }, [targetInstance, targetInstanceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,7 +241,7 @@ export function DiscoverPage({
             type="button"
             className={`provider-chip ${source === "modrinth" ? "is-active provider-chip--modrinth" : ""}`}
             onClick={() => setSource("modrinth")}
-            title="Browse Modrinth community catalog"
+            title={t("discover.providerModrinth")}
           >
             <ModrinthIcon size={16} />
             <span>Modrinth</span>
@@ -243,7 +251,7 @@ export function DiscoverPage({
             className={`provider-chip ${source === "curseforge" ? "is-active provider-chip--curseforge" : ""}`}
             data-capture-target="curseforge-toggle"
             onClick={() => setSource("curseforge")}
-            title="Browse CurseForge official repository"
+            title={t("discover.providerCurseforge")}
           >
             <CurseForgeIcon size={16} />
             <span>CurseForge</span>
@@ -263,6 +271,10 @@ export function DiscoverPage({
                 value={targetInstanceId || ""}
                 onChange={(event) => {
                   const val = event.target.value;
+                  if (!val) {
+                    setGameVersion("");
+                    setLoader("");
+                  }
                   onSelectTargetInstance?.(val || null);
                 }}
                 className="target-instance-bar__select"
@@ -271,7 +283,7 @@ export function DiscoverPage({
                 {instances.map((inst) => (
                   <option key={inst.id} value={inst.id}>
                     {inst.name} ({inst.version}
-                    {inst.loader && inst.loader !== "vanilla"
+                    {inst.loader && inst.loader.toLowerCase() !== "vanilla"
                       ? ` · ${inst.loader}`
                       : ""}
                     )
@@ -282,7 +294,7 @@ export function DiscoverPage({
             {targetInstance && (
               <span className="target-instance-bar__badge">
                 {targetInstance.version}
-                {targetInstance.loader && targetInstance.loader !== "vanilla"
+                {targetInstance.loader && targetInstance.loader.toLowerCase() !== "vanilla"
                   ? ` · ${targetInstance.loader}`
                   : ""}
               </span>
@@ -291,7 +303,11 @@ export function DiscoverPage({
               <button
                 type="button"
                 className="target-instance-bar__clear"
-                onClick={() => onSelectTargetInstance?.(null)}
+                onClick={() => {
+                  setGameVersion("");
+                  setLoader("");
+                  onSelectTargetInstance?.(null);
+                }}
                 title={t("discover.clearTarget")}
               >
                 ×
@@ -532,9 +548,9 @@ export function DiscoverPage({
                 {projectType === "modpack"
                   ? t("discover.packsHint")
                   : projectType === "resourcepack"
-                    ? (locale === "ru" ? "Текстуры и визуальные паки в один клик" : "Textures and visuals in one click")
+                    ? t("discover.resourcepacksHint")
                     : projectType === "shader"
-                      ? (locale === "ru" ? "Реалистичное освещение и эффекты" : "Realistic lighting and shaders")
+                      ? t("discover.shadersHint")
                       : t("discover.modsHint")}
                 {total > 0 && ` · ${t("discover.found", { count: total.toLocaleString("en-US") })}`}
               </p>

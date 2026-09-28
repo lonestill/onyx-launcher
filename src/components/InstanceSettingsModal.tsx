@@ -23,6 +23,7 @@ import type {
   LauncherSettings,
   MinecraftServerStatus,
 } from "../types";
+import { isBuiltinPureGame } from "../utils";
 
 const colors: Array<[InstanceColor, TranslationKey]> = [
   ["lime", "instanceSettings.color.lime"],
@@ -75,8 +76,15 @@ export function InstanceSettingsModal({
 
   useEffect(() => {
     if (!instance) return;
-    setName(instance.id === "vanilla-start" && instance.name === "Pure Game" ? t("home.defaultName") : instance.name);
-    setDescription(instance.id === "vanilla-start" && instance.description === "Minecraft without modifications" ? t("home.defaultDescription") : instance.description);
+    setName(isBuiltinPureGame(instance) ? t("home.defaultName") : instance.name);
+    setDescription(
+      instance.id === "vanilla-start" &&
+        (!instance.description ||
+          instance.description === "Minecraft without modifications" ||
+          instance.description === "Minecraft без модификаций")
+        ? t("home.defaultDescription")
+        : instance.description,
+    );
     setColor(instance.color);
     setMemory(instance.settings?.memory ?? globalSettings.memory);
     setWidth(instance.settings?.windowWidth ?? globalSettings.windowWidth);
@@ -193,7 +201,7 @@ export function InstanceSettingsModal({
             <div className="modal__eyebrow">
               <SlidersHorizontal size={14} /> {t("instanceSettings.eyebrow")}
             </div>
-            <h2>{instance.id === "vanilla-start" && instance.name === "Pure Game" ? t("home.defaultName") : instance.name}</h2>
+            <h2>{isBuiltinPureGame(instance) ? t("home.defaultName") : instance.name}</h2>
             <p className="modal__subtitle">{t("instanceSettings.subtitle")}</p>
 
             <div className="modal-tabs">

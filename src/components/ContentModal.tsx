@@ -21,7 +21,7 @@ import type {
   GameInstance,
   InstanceContent,
 } from "../types";
-import { formatBytes } from "../utils";
+import { formatBytes, isBuiltinPureGame } from "../utils";
 
 export function ContentModal({
   instance,
@@ -197,7 +197,7 @@ export function ContentModal({
             <div className="modal__eyebrow">
               <Package size={14} /> {t("content.eyebrow")}
             </div>
-            <h2>{t("content.title", { name: instance.id === "vanilla-start" && instance.name === "Pure Game" ? t("home.defaultName") : instance.name })}</h2>
+            <h2>{t("content.title", { name: isBuiltinPureGame(instance) ? t("home.defaultName") : instance.name })}</h2>
             <p className="modal__subtitle">{t("content.subtitle")}</p>
 
             <div className="content-tabs">

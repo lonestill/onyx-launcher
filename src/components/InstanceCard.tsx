@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { GameInstance } from "../types";
-import { formatPlaytime } from "../utils";
+import { formatPlaytime, isBuiltinPureGame } from "../utils";
 
 interface InstanceCardProps {
   instance: GameInstance;
@@ -120,8 +120,15 @@ export function InstanceCard({
       <div className="instance-card__body">
         <div className="instance-card__heading">
           <div>
-            <h3>{builtIn && instance.name === "Pure Game" ? t("home.defaultName") : instance.name}</h3>
-            <p>{builtIn && instance.description === "Minecraft without modifications" ? t("home.defaultDescription") : instance.description}</p>
+            <h3>{isBuiltinPureGame(instance) ? t("home.defaultName") : instance.name}</h3>
+            <p>
+              {builtIn &&
+              (!instance.description ||
+                instance.description === "Minecraft without modifications" ||
+                instance.description === "Minecraft без модификаций")
+                ? t("home.defaultDescription")
+                : instance.description}
+            </p>
           </div>
           <button
             className="icon-button icon-button--quiet"

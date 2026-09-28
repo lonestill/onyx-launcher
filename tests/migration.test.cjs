@@ -303,6 +303,6 @@ test("migration: createOnyxInstanceFromCandidate builds valid Onyx metadata", ()
   assert.equal(inst.version, "1.20.2");
   assert.equal(inst.loader, "Forge");
   assert.equal(inst.modCount, 45);
-  assert.equal(inst.status, "ready");
+  assert.equal(inst.status, "setup");
   assert.equal(inst.migratedFrom, "curseforge");
 });

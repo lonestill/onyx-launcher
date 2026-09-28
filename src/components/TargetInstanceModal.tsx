@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Box, ChevronRight, PackagePlus, X } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { CatalogProject, GameInstance } from "../types";
+import { isBuiltinPureGame } from "../utils";
 
 export function TargetInstanceModal({
   project,
@@ -32,18 +33,31 @@ export function TargetInstanceModal({
   const compatible = instances.filter((instance) => {
     if (instance.status !== "ready") return false;
     if (isGenericContent) return true;
+    const isVanilla = !instance.loader || instance.loader.toLowerCase() === "vanilla";
+    if (project?.project_type === "mod" && isVanilla) return false;
     const versionMatch =
       !project?.versions?.length || project.versions.includes(instance.version);
+    const instLoader = instance.loader.toLowerCase();
     const loaderMatch =
-      project?.categories.some((category) =>
-        instance.loader.toLowerCase().includes(category),
-      ) || instance.loader.toLowerCase().includes("vanilla");
+      project?.categories?.some((category) => {
+        const cat = category.toLowerCase();
+        return cat === instLoader || (instLoader === "quilt" && cat === "fabric");
+      }) ?? false;
     return versionMatch && loaderMatch;
   });
   const choices =
     compatible.length > 0
       ? compatible
-      : instances.filter((instance) => instance.status === "ready");
+      : instances.filter((instance) => {
+          if (instance.status !== "ready") return false;
+          if (
+            project?.project_type === "mod" &&
+            (!instance.loader || instance.loader.toLowerCase() === "vanilla")
+          ) {
+            return false;
+          }
+          return true;
+        });
 
   return (
     <AnimatePresence>
@@ -84,7 +98,7 @@ export function TargetInstanceModal({
                     )}
                   </span>
                   <div>
-                    <strong>{instance.id === "vanilla-start" && instance.name === "Pure Game" ? t("home.defaultName") : instance.name}</strong>
+                    <strong>{isBuiltinPureGame(instance) ? t("home.defaultName") : instance.name}</strong>
                     <small>
                       Minecraft {instance.version} · {instance.loader}
                     </small>

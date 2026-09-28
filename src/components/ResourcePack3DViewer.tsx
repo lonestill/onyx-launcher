@@ -94,6 +94,7 @@ export function ResourcePack3DViewer({
     instances[0]?.id || "",
   );
   const [installedSuccess, setInstalledSuccess] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
 
   // Active Tab and on-demand rendering refs
   const activeTabRef = useRef(activeTab);
@@ -555,6 +556,7 @@ export function ResourcePack3DViewer({
   const handleApplyInstall = async () => {
     if (!packData.tempFilePath || !selectedInstanceId) return;
     setIsInstalling(true);
+    setInstallError(null);
     try {
       if (onInstall) {
         await onInstall(selectedInstanceId, packData.tempFilePath);
@@ -570,7 +572,8 @@ export function ResourcePack3DViewer({
         onClose();
       }, 1400);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to install resource pack preview:", err);
+      setInstallError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsInstalling(false);
     }
@@ -877,6 +880,12 @@ export function ResourcePack3DViewer({
           </div>
 
           <div className="rpack-footer-actions">
+            {installError && (
+              <span style={{ color: "#ef4444", fontSize: "12px", marginRight: "auto" }}>
+                {installError}
+              </span>
+            )}
+
             <button
               type="button"
               className="button button--ghost"

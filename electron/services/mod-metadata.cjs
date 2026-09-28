@@ -209,7 +209,7 @@ async function scanInstanceMods(instanceDirectory) {
   return {
     scannedCount: mods.length,
     recognizedCount: mods.filter((mod) => mod.ids.length > 0).length,
-    unreadableCount,
+    unreadableCount: mods.filter((mod) => Boolean(mod.unreadable)).length,
     duplicates: duplicateModIds(mods),
     mods,
   };

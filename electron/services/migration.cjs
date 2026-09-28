@@ -1159,6 +1159,14 @@ const IMPORTANT_ITEMS = [
   "blueprints",
   "visualprospecting",
   "schematics",
+  "screenshots",
+  "stats",
+  "journeymap",
+  "XaeroWaypoints",
+  "XaeroWorldMap",
+  "crash-reports",
+  "logs",
+  "hotbar.nbt",
 ];
 
 /**
@@ -1233,14 +1241,15 @@ function createOnyxInstanceFromCandidate(candidate, instanceId) {
     prism: "cyan",
     modrinth: "lime",
     vanilla: "violet",
-    multimc: "emerald",
-    atlauncher: "sky",
-    feather: "indigo",
+    multimc: "lime",
+    atlauncher: "amber",
+    feather: "cyan",
     custom: "rose",
   };
 
   const launcherKey = candidate.sourceLauncher || candidate.launcher || "custom";
   const color = colorMap[launcherKey] || "lime";
+  const resolvedVersionId = candidate.resolvedVersionId || null;
 
   return {
     id: instanceId,
@@ -1248,11 +1257,12 @@ function createOnyxInstanceFromCandidate(candidate, instanceId) {
     version: candidate.version || "1.21.1",
     loader: candidate.loader || "Vanilla",
     loaderVersion: candidate.loaderVersion || null,
+    resolvedVersionId,
     description: `Migrated from ${launcherKey.toUpperCase()}`,
     color,
     glyph: candidate.name.slice(0, 2).toUpperCase(),
     favorite: false,
-    status: "ready",
+    status: resolvedVersionId ? "ready" : "setup",
     lastPlayed: "Never played",
     playtimeMinutes: 0,
     modCount: candidate.modCount || 0,

@@ -15,6 +15,10 @@ export function TitleBar({ onSearch }: TitleBarProps) {
     return window.onyx.onWindowMaximized(setMaximized);
   }, []);
 
+  const isMac =
+    typeof navigator !== "undefined" &&
+    /mac|darwin/i.test(navigator.userAgent || navigator.platform);
+
   return (
     <header className="titlebar">
       <div className="titlebar__brand">
@@ -28,7 +32,7 @@ export function TitleBar({ onSearch }: TitleBarProps) {
       <button className="titlebar__search no-drag" onClick={onSearch}>
         <Search size={14} strokeWidth={2.3} />
         <span>{t("titlebar.search")}</span>
-        <kbd>Ctrl K</kbd>
+        <kbd>{isMac ? "⌘K" : "Ctrl K"}</kbd>
       </button>
 
       <div className="window-actions no-drag">

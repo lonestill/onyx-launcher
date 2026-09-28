@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { GameInstance, MinecraftServerStatus, PlaySession, RouteId } from "../types";
-import { formatPlaytime } from "../utils";
+import { formatPlaytime, isBuiltinPureGame } from "../utils";
 
 interface HomePageProps {
   instances: GameInstance[];
@@ -62,12 +62,15 @@ export function HomePage({
     instances[0];
 
   const displayName = (instance: GameInstance) =>
-    instance.id === "vanilla-start" && instance.name === "Pure Game"
+    isBuiltinPureGame(instance)
       ? t("home.defaultName")
       : instance.name;
 
   const displayDescription = (instance: GameInstance) =>
-    instance.id === "vanilla-start" && instance.description === "Minecraft without modifications"
+    instance.id === "vanilla-start" &&
+    (!instance.description ||
+      instance.description === "Minecraft without modifications" ||
+      instance.description === "Minecraft без модификаций")
       ? t("home.defaultDescription")
       : instance.description;
 
@@ -128,7 +131,7 @@ export function HomePage({
     >
       <div className="page-heading page-heading--home">
         <div>
-          <p className="eyebrow">Command center</p>
+          <p className="eyebrow">{t("home.eyebrow")}</p>
           <h1>
             {greeting}, <span>{profileName === "Player" ? t("profile.player") : profileName}</span>
           </h1>
@@ -178,7 +181,7 @@ export function HomePage({
               </span>
               <i>·</i>
               <span>
-                {activeInstance.lastPlayed === "Never played"
+                {!activeInstance.lastPlayed || activeInstance.lastPlayed === "Never played"
                   ? t("home.neverPlayed")
                   : activeInstance.lastPlayed}
               </span>
@@ -262,7 +265,7 @@ export function HomePage({
               <button
                 className="button button--secondary button--icon-only"
                 onClick={() => void window.onyx.state.openInstanceFolder(activeInstance.id)}
-                title="Open instance folder in Finder"
+                title={t("home.openFolder")}
               >
                 <Folder size={14} />
               </button>
@@ -278,10 +281,13 @@ export function HomePage({
           </div>
           <div className="incident-banner__copy">
             <strong>
-              Last launch of {displayName(failedInstance)} exited with code {failedInstance.lastExitCode ?? 1}
+              {t("home.incident.title", {
+                name: displayName(failedInstance),
+                code: failedInstance.lastExitCode ?? 1,
+              })}
             </strong>
             <p>
-              {failedInstance.lastDiagnosis?.message || "Crash log recorded and ready for analysis."}
+              {failedInstance.lastDiagnosis?.message || t("home.incident.desc")}
             </p>
           </div>
           <button
@@ -289,7 +295,7 @@ export function HomePage({
             onClick={() => onOpen(failedInstance)}
           >
             <Wrench size={13} />
-            Analyze Crash & Bisect
+            {t("home.incident.action")}
           </button>
         </div>
       )}
@@ -378,8 +384,8 @@ export function HomePage({
               <Radio size={16} />
             </div>
             <div className="ops-card__titles">
-              <strong>Quick Join</strong>
-              <span>Direct multiplayer launch</span>
+              <strong>{t("home.quickJoin.title")}</strong>
+              <span>{t("home.quickJoin.subtitle")}</span>
             </div>
           </div>
           <div className="ops-card__body">
@@ -402,7 +408,7 @@ export function HomePage({
                     onClick={() => void handlePingServer()}
                     disabled={pinging}
                   >
-                    {pinging ? <LoaderCircle size={12} className="spin" /> : "Ping"}
+                    {pinging ? <LoaderCircle size={12} className="spin" /> : t("home.quickJoin.ping")}
                   </button>
                 )}
               </div>
@@ -416,7 +422,7 @@ export function HomePage({
                   <span>
                     {pingResult.online
                       ? `${pingResult.latencyMs ?? 0}ms · ${pingResult.playersOnline ?? 0} online`
-                      : "Server offline or unreachable"}
+                      : t("home.quickJoin.offline")}
                   </span>
                 </div>
               )}
@@ -428,7 +434,7 @@ export function HomePage({
                 disabled={!quickServer.trim() || isRunning}
               >
                 <Play size={13} fill="currentColor" />
-                Connect & Play
+                {t("home.quickJoin.connect")}
               </button>
             </div>
           </div>

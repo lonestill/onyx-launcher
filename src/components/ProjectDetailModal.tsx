@@ -237,14 +237,35 @@ function markdownToHtml(md: string): string {
   return output.join("\n");
 }
 
+function isSafeUrl(rawVal: string, isSrc = false): boolean {
+  if (!rawVal) return false;
+  // eslint-disable-next-line no-control-regex
+  const cleaned = rawVal.replace(/[\u0000-\u001F\u007F-\u009F\s]+/g, "");
+  const lower = cleaned.toLowerCase();
+  if (
+    lower.startsWith("https://") ||
+    lower.startsWith("http://") ||
+    lower.startsWith("mailto:") ||
+    lower.startsWith("#") ||
+    lower.startsWith("/")
+  ) {
+    return true;
+  }
+  if (isSrc && /^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,/i.test(cleaned)) {
+    return true;
+  }
+  return false;
+}
+
 function sanitizeHtml(html: string): string {
+  if (!html || typeof html !== "string") return "";
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
     // Remove dangerous tags
     const dangerous = doc.querySelectorAll(
-      "script, iframe, object, embed, form, input, button, style, link, meta",
+      "script, iframe, object, embed, form, input, button, style, link, meta, base, frame, frameset",
     );
     dangerous.forEach((el) => el.remove());
 
@@ -253,12 +274,12 @@ function sanitizeHtml(html: string): string {
     all.forEach((el) => {
       for (const attr of Array.from(el.attributes)) {
         const attrName = attr.name.toLowerCase();
-        if (attrName.startsWith("on")) {
+        if (attrName.startsWith("on") || attrName === "srcdoc" || attrName === "formaction") {
           el.removeAttribute(attr.name);
+          continue;
         }
         if (attrName === "href" || attrName === "src") {
-          const val = attr.value.trim().toLowerCase();
-          if (val.startsWith("javascript:") || val.startsWith("vbscript:") || val.startsWith("data:")) {
+          if (!isSafeUrl(attr.value, attrName === "src")) {
             el.removeAttribute(attr.name);
           }
         }
@@ -271,7 +292,7 @@ function sanitizeHtml(html: string): string {
 
     return doc.body.innerHTML;
   } catch {
-    return html;
+    return "";
   }
 }
 
@@ -808,7 +829,7 @@ export function ProjectDetailModal({
                     className="button button--secondary project-detail__preview-btn"
                     onClick={() => void handleOpen3DPreview()}
                     disabled={loadingPreview}
-                    title="Интерактивный 3D-просмотр ресурспака в реальном времени"
+                    title={t("projectDetail.preview3dTooltip")}
                   >
                     {loadingPreview ? (
                       <LoaderCircle className="spin" size={16} />
@@ -816,7 +837,7 @@ export function ProjectDetailModal({
                       <Box size={16} />
                     )}
                     <span>
-                      {loadingPreview ? "Загрузка 3D..." : "3D Предпросмотр"}
+                      {loadingPreview ? t("projectDetail.preview3dLoading") : t("projectDetail.preview3d")}
                     </span>
                   </button>
                 )}
@@ -953,7 +974,7 @@ export function ProjectDetailModal({
                                   prev > 0 ? prev - 1 : gallery.length - 1,
                                 )
                               }
-                              aria-label="Previous screenshot"
+                              aria-label={t("projectDetail.prevScreenshot")}
                             >
                               <ChevronLeft size={20} />
                             </button>
@@ -964,7 +985,7 @@ export function ProjectDetailModal({
                                   prev < gallery.length - 1 ? prev + 1 : 0,
                                 )
                               }
-                              aria-label="Next screenshot"
+                              aria-label={t("projectDetail.nextScreenshot")}
                             >
                               <ChevronRight size={20} />
                             </button>
@@ -1277,7 +1298,7 @@ export function ProjectDetailModal({
                                       void handleOpen3DPreview(version.downloadUrl!);
                                     }}
                                     disabled={loadingPreview}
-                                    title="3D просмотр этой версии"
+                                    title={t("projectDetail.preview3dVersionTooltip")}
                                   >
                                     <Box size={14} />
                                     <span>3D</span>

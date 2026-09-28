@@ -83,7 +83,7 @@ const CommunityPage = lazy(() =>
 );
 
 export default function App() {
-  const { locale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const [state, setState] = useState<LauncherState | null>(null);
   const [route, setRoute] = useState<RouteId>("home");
   const [instanceReturnRoute, setInstanceReturnRoute] =
@@ -199,6 +199,9 @@ export default function App() {
   useEffect(() => {
     void refreshState()
       .then((loaded) => {
+        if (loaded?.settings?.language) {
+          setLocale(loaded.settings.language);
+        }
         setOnboardingOpen(!loaded.settings.onboardingComplete);
         if (loaded.settings.autoCheckUpdates) {
           void window.onyx.state.checkUpdates().catch(() => undefined);
@@ -215,7 +218,7 @@ export default function App() {
       .versions()
       .then(setVersions)
       .catch(() => undefined);
-  }, [pushToast, refreshState, t]);
+  }, [pushToast, refreshState, setLocale, t]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -892,6 +895,9 @@ export default function App() {
   async function updateSettings(patch: Partial<LauncherSettings>) {
     const settings = await window.onyx.state.updateSettings(patch);
     setState((current) => (current ? { ...current, settings } : current));
+    if (patch.language) {
+      setLocale(patch.language);
+    }
     if ("showSnapshots" in patch) {
       void window.onyx.minecraft.versions().then(setVersions);
     }

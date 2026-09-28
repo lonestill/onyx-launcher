@@ -2312,7 +2312,7 @@ function registerIpc() {
   ipcMain.handle("resourcepack:install-preview", async (_event, { tempFilePath, instanceId, filename }) => {
     const instance = state.instances.find((i) => i.id === instanceId);
     if (!instance) throw new Error("Instance not found");
-    const instanceDir = path.join(instancesRoot, instance.id);
+    const instanceDir = path.join(state.settings.gameDirectory, instance.id);
     const destFolder = path.join(instanceDir, "resourcepacks");
     return resourcepackService.installPreviewPack({
       tempFilePath,
@@ -2846,19 +2846,51 @@ function registerIpc() {
   ipcMain.handle(
     "curseforge:install-mod",
     async (_event, instanceId, modId, fileId) => {
-      return curseforgeService.installCurseForgeMod({
+      const targetInstance = state.instances.find((i) => i.id === instanceId);
+      if (!targetInstance) throw new Error("Instance not found");
+
+      const profile = loaderInfo(targetInstance);
+      if (profile.loader === "vanilla") {
+        throw new Error(
+          "JAR mods require a Fabric, Quilt, Forge, or NeoForge instance",
+        );
+      }
+
+      const res = await curseforgeService.installCurseForgeMod({
         instancesRoot: state.settings.gameDirectory,
         instanceId,
         modId,
         fileId,
+        gameVersion: profile.minecraftVersion,
+        loader: profile.loader,
       });
+
+      const content = await listInstanceContent(targetInstance.id, "mods");
+      instanceUpdate(targetInstance, {
+        modCount: content.length,
+      });
+      send("instance:updated", structuredClone(targetInstance));
+      await saveState();
+
+      return res;
     },
   );
   ipcMain.handle("curseforge:install-modpack", async (_event, options) => {
-    return curseforgeService.installCurseForgeModpack({
+    const res = await curseforgeService.installCurseForgeModpack({
       instancesRoot: state.settings.gameDirectory,
       ...options,
     });
+    if (res?.metadata) {
+      const existing = state.instances.findIndex((i) => i.id === res.metadata.id);
+      if (existing >= 0) {
+        state.instances[existing] = res.metadata;
+      } else {
+        state.instances.unshift(res.metadata);
+      }
+      send("instance:updated", structuredClone(res.metadata));
+      await saveState();
+    }
+    return res;
   });
 
   ipcMain.handle("launcher:preflight", async (_event, instanceId) => {
@@ -3191,7 +3223,7 @@ function registerIpc() {
             void telemetryService.trackGameSession({
               distinctId: state?.settings?.anonymousClientId,
               instanceName: instance.name,
-              minecraftVersion: instance.versionId,
+              minecraftVersion: instance.version,
               loader: instance.loader,
               durationMinutes: minutes,
               exitCode: Number.isFinite(code) ? code : null,

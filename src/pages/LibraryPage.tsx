@@ -209,10 +209,10 @@ export function LibraryPage({
             <button
               className="button button--secondary"
               onClick={onJoinParty}
-              title={locale === "ru" ? "Подключиться к комнате друга (P2P)" : "Join a friend's room (P2P)"}
+              title={t("library.joinPartyTitle")}
             >
               <Users2 size={16} />
-              <span>{locale === "ru" ? "Войти в комнату" : "Join Room"}</span>
+              <span>{t("library.joinParty")}</span>
             </button>
           )}
 

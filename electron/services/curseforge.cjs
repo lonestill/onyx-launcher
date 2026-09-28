@@ -292,6 +292,10 @@ async function installCurseForgeMod({
   instanceId,
   modId,
   fileId,
+  gameVersion,
+  loader,
+  signal,
+  onProgress,
 }) {
   const root = path.resolve(instancesRoot);
   const instanceDir = path.resolve(root, String(instanceId));
@@ -304,12 +308,16 @@ async function installCurseForgeMod({
     const batch = await getCurseForgeFilesBatch([Number(fileId)]);
     file = batch[0];
   } else {
-    const files = await getCurseForgeFiles(modId, { pageSize: 1 });
-    file = files[0];
+    const files = await getCurseForgeFiles(modId, {
+      gameVersion,
+      loader,
+      pageSize: 10,
+    });
+    file = files.find((f) => f.releaseType === 1) || files[0];
   }
 
   if (!file) {
-    throw new Error(`File ${fileId || "latest"} for mod ${modId} not found`);
+    throw new Error(`File ${fileId || "compatible"} for mod ${modId} not found`);
   }
 
   const downloadUrl = resolveFileUrl(file);
@@ -323,7 +331,7 @@ async function installCurseForgeMod({
   await fsp.mkdir(modsDir, { recursive: true });
   const destination = path.join(modsDir, file.fileName);
 
-  await downloadFile({ url: downloadUrl, destination });
+  await downloadFile({ url: downloadUrl, destination, signal, onProgress });
   return {
     destination,
     fileName: file.fileName,
@@ -495,7 +503,13 @@ async function installCurseForgeModpack({
       color: "amber",
       installedAt: new Date().toISOString(),
       lastPlayed: null,
-      playTimeMinutes: 0,
+      playtimeMinutes: 0,
+      status: "ready",
+      resolvedVersionId: null,
+      glyph: safeName.slice(0, 2).toUpperCase(),
+      description: manifest.name || "",
+      favorite: false,
+      modCount: downloadItems.length,
       source: "curseforge",
       curseforgeProject: {
         name: manifest.name,

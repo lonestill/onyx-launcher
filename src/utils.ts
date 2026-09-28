@@ -53,3 +53,14 @@ export function formatEta(seconds: number): string {
   if (seconds > 60) return `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
   return `${Math.floor(seconds)}s`;
 }
+
+export function isBuiltinPureGame(
+  instance: { id?: string; name?: string } | null | undefined,
+): boolean {
+  if (!instance) return false;
+  return (
+    instance.id === "vanilla-start" &&
+    (!instance.name || instance.name === "Pure Game" || instance.name === "Чистая игра")
+  );
+}
+
