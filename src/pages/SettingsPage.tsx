@@ -138,21 +138,21 @@ export function SettingsPage({
       if (!result.updateAvailable) {
         onNotify(
           "info",
-          "App Updates",
-          "You are using the latest version of Onyx Launcher.",
+          t("settings.appUpdates.title"),
+          t("settings.appUpdates.upToDate"),
         );
       } else {
         onNotify(
           "success",
-          "App Updates",
-          `Onyx Launcher v${result.latestVersion} is available!`,
+          t("settings.appUpdates.title"),
+          t("settings.appUpdates.available", { version: result.latestVersion }),
         );
       }
     } catch (error) {
       const msg =
         error instanceof Error ? error.message : "Failed to check for updates";
       setUpdateError(msg);
-      onNotify("warning", "App Updates", msg);
+      onNotify("warning", t("settings.appUpdates.title"), msg);
     } finally {
       setCheckingUpdate(false);
     }
@@ -172,15 +172,15 @@ export function SettingsPage({
       setDownloadingUpdate(false);
       onNotify(
         "success",
-        "App Updates",
-        "Update downloaded successfully. Ready to restart and apply.",
+        t("settings.appUpdates.title"),
+        t("settings.appUpdates.ready"),
       );
     } catch (error) {
       setDownloadingUpdate(false);
       const msg =
         error instanceof Error ? error.message : "Failed to download update";
       setUpdateError(msg);
-      onNotify("warning", "App Updates", msg);
+      onNotify("warning", t("settings.appUpdates.title"), msg);
     }
   };
 
@@ -191,7 +191,7 @@ export function SettingsPage({
       const msg =
         error instanceof Error ? error.message : "Failed to apply update";
       setUpdateError(msg);
-      onNotify("warning", "App Updates", msg);
+      onNotify("warning", t("settings.appUpdates.title"), msg);
     }
   };
 
@@ -390,7 +390,7 @@ export function SettingsPage({
                     <RefreshCw size={17} className={checkingUpdate ? "spin" : ""} />
                   </span>
                   <div>
-                    <strong>Onyx Launcher v{packageMetadata.version}</strong>
+                    <strong>Scope Launcher v{packageMetadata.version}</strong>
                     <p>
                       {checkingUpdate
                         ? t("settings.appUpdates.checking")
@@ -432,7 +432,7 @@ export function SettingsPage({
                     >
                       <div>
                         <strong style={{ fontSize: 13, color: "var(--text)" }}>
-                          Onyx Launcher v{updateInfo.latestVersion}
+                          Scope Launcher v{updateInfo.latestVersion}
                         </strong>
                         {updateInfo.publishedAt && (
                           <span

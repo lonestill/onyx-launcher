@@ -3647,7 +3647,7 @@ if (!gotLock) {
     registerIpc();
     await createWindow();
 
-    updaterService.downloadDirectory = path.join(app.getPath("temp"), "onyx-updates");
+    updaterService.downloadDirectory = path.join(app.getPath("temp"), "scope-updates");
     updaterService.currentVersion = app.getVersion();
 
     if (state.settings.autoCheckUpdates) {
@@ -3657,7 +3657,7 @@ if (!gotLock) {
           if (update && update.updateAvailable) {
             if (state.settings.notifications && Notification.isSupported()) {
               new Notification({
-                title: "Onyx Launcher Update",
+                title: "Scope Launcher Update",
                 body: `Version ${update.latestVersion} is available to install.`,
                 silent: false,
               }).show();

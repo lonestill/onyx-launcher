@@ -19,7 +19,7 @@ try {
 const { USER_AGENT, calculateSpeed, calculateEta } = require("./network.cjs");
 
 const GITHUB_RELEASES_LATEST_URL =
-  "https://api.github.com/repos/lonestill/onyx-launcher/releases/latest";
+  "https://api.github.com/repos/lonestill/scope-launcher/releases/latest";
 
 function cleanVersion(v) {
   if (!v) return "0.0.0";
@@ -146,26 +146,90 @@ function parseRelease(releaseData, currentVersion, platform = process.platform) 
   };
 }
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 1000;
+
 async function checkForUpdate(currentVersion, options = {}) {
   const url = options.url || GITHUB_RELEASES_LATEST_URL;
   const platform = options.platform || process.platform;
   const fetchFn = options.fetch || fetch;
+  const maxRetries = options.maxRetries ?? MAX_RETRIES;
 
-  const response = await fetchFn(url, {
-    headers: {
-      "User-Agent": options.userAgent || USER_AGENT,
-      Accept: "application/vnd.github.v3+json",
-      ...(options.headers || {}),
-    },
-    signal: options.signal,
-  });
+  let lastError = null;
 
-  if (!response.ok) {
-    throw new Error(`GitHub release check failed: HTTP ${response.status}`);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const headers = {
+        "User-Agent": options.userAgent || USER_AGENT,
+        Accept: "application/vnd.github.v3+json",
+        ...(options.headers || {}),
+      };
+
+      // Conditional request via ETag to avoid wasting rate limit
+      if (options.etag) {
+        headers["If-None-Match"] = options.etag;
+      }
+
+      const response = await fetchFn(url, {
+        headers,
+        signal: options.signal,
+      });
+
+      // GitHub rate limit exhausted
+      if (response.status === 403) {
+        const remaining = response.headers?.get?.("x-ratelimit-remaining");
+        const resetEpoch = response.headers?.get?.("x-ratelimit-reset");
+        if (remaining === "0" || remaining === 0) {
+          const resetDate = resetEpoch ? new Date(Number(resetEpoch) * 1000) : null;
+          const resetStr = resetDate ? ` Resets at ${resetDate.toLocaleTimeString()}.` : "";
+          throw new Error(`GitHub API rate limit exceeded.${resetStr} Try again later.`);
+        }
+        throw new Error(`GitHub release check failed: HTTP 403 Forbidden`);
+      }
+
+      // 304 Not Modified — no new release since last ETag
+      if (response.status === 304) {
+        return { updateAvailable: false, notModified: true };
+      }
+
+      if (!response.ok) {
+        // 5xx = retriable, 4xx (except 403/304) = not retriable
+        if (response.status >= 500 && attempt < maxRetries) {
+          lastError = new Error(`GitHub release check failed: HTTP ${response.status}`);
+          await sleep(RETRY_BASE_MS * Math.pow(2, attempt));
+          continue;
+        }
+        throw new Error(`GitHub release check failed: HTTP ${response.status}`);
+      }
+
+      const releaseData = await response.json();
+      const result = parseRelease(releaseData, currentVersion, platform);
+
+      // Capture ETag for conditional requests
+      const etag = response.headers?.get?.("etag");
+      if (etag) {
+        result.etag = etag;
+      }
+
+      return result;
+    } catch (err) {
+      // Don't retry AbortError or rate limit
+      if (err.name === "AbortError" || /rate limit/i.test(err.message)) {
+        throw err;
+      }
+      lastError = err;
+      if (attempt < maxRetries) {
+        await sleep(RETRY_BASE_MS * Math.pow(2, attempt));
+        continue;
+      }
+    }
   }
 
-  const releaseData = await response.json();
-  return parseRelease(releaseData, currentVersion, platform);
+  throw lastError || new Error("Update check failed after retries");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function downloadUpdate({ assetUrl, destination, onProgress, signal, fetchFn = fetch }) {
@@ -329,16 +393,29 @@ async function applyUpdate({ filePath, platform = process.platform }) {
 
 class UpdaterService {
   constructor({ downloadDirectory, currentVersion } = {}) {
-    this.downloadDirectory = downloadDirectory || path.join(os.tmpdir(), "onyx-updates");
-    this.currentVersion = currentVersion || "1.6.11";
+    this.downloadDirectory = downloadDirectory || path.join(os.tmpdir(), "scope-updates");
+    this.currentVersion = currentVersion || "0.0.0";
     this.lastCheckResult = null;
     this.downloadedFilePath = null;
     this.downloadAbortController = null;
+    this._lastEtag = null;
   }
 
   async checkForUpdate(currentVersion = this.currentVersion) {
     const version = currentVersion || this.currentVersion;
-    const result = await checkForUpdate(version);
+    const result = await checkForUpdate(version, {
+      etag: this._lastEtag,
+    });
+
+    // 304 Not Modified — return cached result or "up to date"
+    if (result.notModified && this.lastCheckResult) {
+      return this.lastCheckResult;
+    }
+
+    if (result.etag) {
+      this._lastEtag = result.etag;
+    }
+
     this.lastCheckResult = result;
     return result;
   }
@@ -353,7 +430,7 @@ class UpdaterService {
 
     const { downloadUrl, assetName } = this.lastCheckResult;
     await fsp.mkdir(this.downloadDirectory, { recursive: true });
-    const destination = path.join(this.downloadDirectory, assetName || "onyx-update-binary");
+    const destination = path.join(this.downloadDirectory, assetName || "scope-update-binary");
 
     this.downloadAbortController = new AbortController();
     const activeSignal = signal || this.downloadAbortController.signal;

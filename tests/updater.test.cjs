@@ -210,7 +210,7 @@ test("checkForUpdate fetches release info and returns update result", async () =
 });
 
 test("downloadUpdate streams binary asset with byte progress, speed, and ETA", async () => {
-  const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "onyx-updater-test-"));
+  const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-updater-test-"));
   const destination = path.join(tempDir, "update-binary.bin");
 
   // Create local HTTP server serving a test payload
@@ -256,4 +256,83 @@ test("downloadUpdate streams binary asset with byte progress, speed, and ETA", a
     server.close();
     await fsp.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
   }
+});
+
+test("checkForUpdate retries on 5xx and succeeds on subsequent attempt", async () => {
+  const mockRelease = {
+    tag_name: "v1.7.0",
+    name: "Scope Launcher 1.7.0",
+    body: "Release notes",
+    published_at: "2026-09-13T18:00:00Z",
+    assets: [
+      {
+        name: "Scope-Launcher-1.7.0.AppImage",
+        browser_download_url: "https://example.com/Scope-Launcher-1.7.0.AppImage",
+        size: 50000000,
+      },
+    ],
+  };
+
+  let attempt = 0;
+  const mockFetch = async () => {
+    attempt++;
+    if (attempt <= 2) {
+      return { ok: false, status: 502, headers: { get: () => null } };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => mockRelease,
+      headers: { get: () => null },
+    };
+  };
+
+  const result = await checkForUpdate("1.6.11", {
+    fetch: mockFetch,
+    platform: "linux",
+    maxRetries: 3,
+  });
+
+  assert.equal(result.updateAvailable, true);
+  assert.equal(result.latestVersion, "1.7.0");
+  assert.equal(attempt, 3);
+});
+
+test("checkForUpdate throws on GitHub API rate limit (403 with x-ratelimit-remaining: 0)", async () => {
+  const mockFetch = async () => ({
+    ok: false,
+    status: 403,
+    headers: {
+      get: (name) => {
+        if (name === "x-ratelimit-remaining") return "0";
+        if (name === "x-ratelimit-reset") return String(Math.floor(Date.now() / 1000) + 3600);
+        return null;
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => checkForUpdate("1.6.11", { fetch: mockFetch, maxRetries: 0 }),
+    (err) => {
+      assert.ok(/rate limit exceeded/i.test(err.message));
+      return true;
+    },
+  );
+});
+
+test("checkForUpdate returns notModified on 304 response", async () => {
+  const mockFetch = async () => ({
+    ok: false,
+    status: 304,
+    headers: { get: () => null },
+  });
+
+  const result = await checkForUpdate("1.6.11", {
+    fetch: mockFetch,
+    etag: '"abc123"',
+    maxRetries: 0,
+  });
+
+  assert.equal(result.updateAvailable, false);
+  assert.equal(result.notModified, true);
 });
