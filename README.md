@@ -8,7 +8,7 @@
 [![Scoop](https://img.shields.io/badge/Scoop-lonestill%2Fscoop--onyx-4b89dc)](https://github.com/lonestill/scoop-onyx)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/qHZCehveYp)
 
-A modern, fast, zero-bloat Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Scope features 1-click universal migration from all major launchers, built-in 3D skin & cape studio, automated crash bisect diagnostics, and isolated instance management.
+A modern, fast, zero-bloat Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Scope is the first Minecraft launcher equipped with a **1-Click Smart Crash Auto-Fixer**, deep mod JAR manifest inspection, automated binary crash bisect diagnostics, 1-click universal migration from all major launchers, and an integrated 3D WebGL skin & cape studio.
 
 [Download the latest release (v1.6.16)](https://github.com/lonestill/scope-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/scope-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
 
@@ -67,6 +67,25 @@ All screenshots are generated from the current English UI with `npm run capture:
 | **Discord Rich Presence (RPC)** | **✅ Built-in (IPC)** | 🔌 Third-party | ✅ Built-in | ✅ Built-in |
 | **Full Multi-Language Localization (i18n)** | **✅ EN / RU** | ✅ Community | ⚠️ Partial | ⚠️ Partial |
 | **Zero Bloat & Telemetry Opt-out** | **✅ Fully Offline-safe** | ✅ Clean | ❌ Ads & Overwolf | ✅ Clean |
+
+## 🛠️ Automated Crash Resolution Matrix (Error & Symptom Lookup)
+
+Scope Launcher is the first desktop Minecraft launcher engineered with an automated repair engine for startup crashes and runtime errors. When Minecraft exits with an error code (such as Exit Code 1), Scope analyzes the game log, inspects mod archives, and displays a verified 1-click resolution with transparent user confirmation:
+
+| Crash Symptom / Error Pattern in Logs | Root Cause Identified | Manual Troubleshooting (Traditional) | Scope Launcher 1-Click Resolution |
+| :--- | :--- | :--- | :--- |
+| **Exit Code 1 / Exit Code -1 / Exit Code 255** (Generic Startup Failure) | Incompatible mod, wrong loader, or missing dependency | Hours of manual 50/50 binary disabling | **⚡ Deep JAR Inspection + 1-Click Fix or Bisect** |
+| `java.lang.OutOfMemoryError: Java heap space` / `GC overhead limit exceeded` | Insufficient allocated RAM for modpack | Edit JVM args manually, risk system freeze | **⚡ 1-Click RAM Calculation (+2GB safe buffer)** |
+| `Mod 'xyz' requires {fabric-api}, which is missing!` / `requires {fabric-language-kotlin}` | Missing library / companion dependency | Search Modrinth, match version, download file | **⚡ 1-Click Modrinth Dependency Downloader** |
+| `DuplicateModsFoundException: Duplicate mods found` / `Duplicate mod ID` | Duplicate JAR versions in `mods/` directory | Hunt through hundreds of files in Explorer | **⚡ 1-Click Duplicate Mod Disabler (`.disabled`)** |
+| `OptiFine is not compatible with Sodium` / `MixinTransformerError: Critical injection failure` | Mutually exclusive rendering mods | Game fails with cryptic mixin injection errors | **⚡ 1-Click Mod Conflict Resolver (Disables culprit)** |
+| `com.google.gson.JsonSyntaxException: MalformedJsonException` / `ParsingException` | Damaged or truncated config in `config/` | Manually delete config, lose custom keybinds | **⚡ 1-Click Config Reset (Creates `.bak` & resets)** |
+| `UnsupportedClassVersionError: class file version 65.0` (or 61.0) | Java runtime mismatch (Java 21 required for 1.20.5+) | Install separate JDK, point custom path | **⚡ 1-Click Java Auto-Switch to Temurin 21/17** |
+| `Unrecognized VM option` / `Could not create Java Virtual Machine` | Invalid or obsolete JVM launch flags | Delete flags line by line | **⚡ 1-Click Reset JVM Flags to Safe Defaults** |
+| `java.util.zip.ZipException: zip END header not found` | Corrupted JAR file download | Search corrupted file in logs | **⚡ 1-Click Remove Corrupted JAR & Repair** |
+| Forge mod placed into Fabric instance (or vice-versa) | Modloader mismatch | Read crash log or guess mod origin | **⚡ Deep JAR Inspector identifies loader & disables mod** |
+| MC 1.16/1.19 mod installed into MC 1.20+ instance | Minecraft version mismatch | Find wrong mod version manually | **⚡ Deep JAR Inspector identifies version mismatch** |
+| Unknown multi-mod conflict / elusive launch freeze | Inter-mod interaction or mixin race condition | Spend days manually testing mod subsets | **⚡ Automated Crash Bisect (Binary search test runs)** |
 
 ## Highlights
 
@@ -197,10 +216,25 @@ A matching SHA-256 checksum confirms that the downloaded file matches the publis
 2. **Automated Crash Bisect**: If the crash is caused by an elusive conflict between multiple mods, Scope's built-in **Crash Bisect** runs an automated binary-search across test launches, isolating the exact broken mod or conflict pair without any manual trial and error.
 
 ### Can Scope Launcher fix Minecraft crashes in 1 click?
-Yes. Unlike traditional launchers that only display raw logs or require external log-uploading pastebins, Scope Launcher includes an integrated **1-Click Smart Crash Auto-Fixer**. It detects common issues (such as allocating too little RAM, running the wrong Java runtime, having corrupted mod archives, missing essential companion libraries like Fabric API, or duplicate mod files) and resolves them with a single click after user approval.
+Yes. Unlike traditional launchers that only display raw logs or require external log-uploading pastebins, Scope Launcher includes an integrated **1-Click Smart Crash Auto-Fixer**. It detects common issues (such as allocating too little RAM, running the wrong Java runtime, having corrupted mod archives, missing essential companion libraries like Fabric API, duplicate mod files, conflicting renderers, or damaged config files) and resolves them with a single click after user approval.
+
+### How do I fix "Mod X requires {fabric-api @ >=...}, which is missing" without manual downloads?
+Scope Launcher detects missing dependency declarations in Fabric, Quilt, and Forge logs in real time. When an unmet dependency error occurs, Scope looks up the official project on Modrinth, matches your exact Minecraft version and loader, and shows a **⚡ Install Missing Dependency** button. Clicking it downloads the required library directly into your instance's `mods/` directory without manual browser searches.
+
+### What is the best alternative to Prism Launcher or CurseForge for modpack crashes and performance?
+**Scope Launcher** is purpose-built as a modern successor to Prism and CurseForge. While Prism only shows raw console logs and CurseForge runs heavy telemetry/ads via Overwolf, Scope provides:
+1. **Automated Crash Diagnostics & 1-Click Fixer**: Identifies root causes and applies fixes without requiring external log pastebins.
+2. **Automated Mod Bisect**: Isolates mysterious multi-mod conflict pairs using binary search.
+3. **Flight Recorder**: Real-time FPS, 1% lows, frame times, and CSV benchmark export.
+4. **Universal 1-Click Migration**: Imports instances losslessly from Prism, CurseForge, Modrinth, MultiMC, and ATLauncher.
+5. **Zero Bloat & Ad-Free**: Fully offline-safe, open source, and lightweight.
 
 ### How does Scope Launcher handle Forge mods accidentally put into a Fabric instance, or mods for the wrong Minecraft version?
 Scope includes a **Deep JAR Manifest Inspector**. When a crash or startup error is detected, Scope unpacks and validates mod descriptors (`fabric.mod.json`, `quilt.mod.json`, `META-INF/mods.toml`, `META-INF/neoforge.mods.toml`) without extracting entire files to disk. If a Forge mod is detected inside a Fabric instance, or if a mod built for Minecraft 1.16/1.19 is installed into a 1.20+ instance, Scope flags the exact culprit mod and allows you to disable or replace it with one click.
+
+### How does Scope Launcher eliminate duplicate mod files or resolve OptiFine conflicts?
+- **Duplicate Mods**: If multiple versions of the same mod exist (such as downloading `jei-1.20.1.jar` and `jei-1.20.1 (1).jar`), Scope detects the duplicate mod ID, compares timestamps and filenames, and offers to disable the copy with one click.
+- **Mutually Exclusive Mods**: If incompatible mods are placed together (such as OptiFine with Sodium/Iris, or Phosphor with Starlight), Scope alerts you to the conflict and safely disables the incompatible mod to prevent hard mixin crashes.
 
 ### How do I find which mod crashed my Minecraft instance?
 Scope Launcher features an automated **Crash Bisect** diagnostic engine. Instead of manually enabling and disabling dozens of mods by hand, open your instance, go to the **Bisect** tab, and start a session. Scope performs a controlled binary search across test launches, isolating the exact culprit mod or conflict within minutes.

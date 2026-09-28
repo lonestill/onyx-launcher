@@ -31,6 +31,17 @@
 | Discord Rich Presence | Yes (Built-in) | Plugin/Third-party | Yes | Yes |
 | Zero Bloat & Telemetry Opt-out | Yes | Yes | No (Ads/Tracking) | Yes |
 
+## Crash Auto-Fix Resolution Index
+
+- `Exit Code 1 / Exit Code -1 / Exit Code 255`: Deep JAR manifest inspection checks loader & Minecraft version; automated Crash Bisect isolates complex multi-mod conflict pairs.
+- `java.lang.OutOfMemoryError` / `Java heap space` / `GC overhead limit`: Calculates safe RAM boost (+2GB up to system memory threshold).
+- `Mod requires {fabric-api} / {fabric-language-kotlin} / {cloth-config} / {architectury} / {yacl}`: Downloads and installs missing dependencies directly from Modrinth API in 1 click.
+- `DuplicateModsFoundException` / `Duplicate mod ID`: Detects duplicate JARs in `mods/` folder and disables duplicate/older file (`.disabled`).
+- `OptiFine is not compatible with Sodium` / `MixinTransformerError`: Detects incompatible mod pairs (OptiFine + Sodium/Iris, Phosphor + Starlight) and disables the conflicting mod.
+- `com.google.gson.JsonSyntaxException: MalformedJsonException` / `ConfigException`: Creates `.bak` backup of damaged config in `config/` and restores default configuration.
+- `UnsupportedClassVersionError: class file version 65.0` (or 61.0): Automatically switches instance to required Eclipse Temurin Java 21/17 runtime.
+- `ZipException: zip END header not found`: Removes corrupted JAR archive and initiates integrity check.
+
 ## Architecture
 
 - **Renderer**: React 18, TypeScript, Vite, Framer Motion, Lucide icons, Three.js.
