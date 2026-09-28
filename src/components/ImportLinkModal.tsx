@@ -47,7 +47,11 @@ export function ImportLinkModal({
   const handleFetchPreview = useCallback(async (urlOrId?: string) => {
     const target = (urlOrId || inputVal).trim();
     if (!target) return;
-    if (target.startsWith("onyx://party/") || target.includes("/party/")) {
+    if (
+      target.startsWith("scope://party/") ||
+      target.startsWith("onyx://party/") ||
+      target.includes("/party/")
+    ) {
       setError(t("party.guide.partyLinkNotice"));
       setPreview(null);
       return;

@@ -3205,9 +3205,29 @@
 .party-guide__step-content p {
   margin: 0;
   font-size: 11px;
-  color: var(--text-soft);
   line-height: 1.4;
+  color: var(--text-soft);
 }
 
+.button--party-join {
+  background: linear-gradient(135deg, #84cc16 0%, #10b981 100%) !important;
+  color: #050811 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 20px rgba(132, 204, 22, 0.4) !important;
+  animation: pulse-party-join 2s infinite ease-in-out;
+}
 
+.button--party-join:hover {
+  background: linear-gradient(135deg, #a3e635 0%, #34d399 100%) !important;
+  box-shadow: 0 0 28px rgba(132, 204, 22, 0.6) !important;
+  transform: translateY(-1px);
+}
 
+@keyframes pulse-party-join {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(132, 204, 22, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(132, 204, 22, 0.65);
+  }
+}

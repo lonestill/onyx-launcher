@@ -389,13 +389,13 @@ async function injectRoomServer(instanceDirectory, { code, address, hostName = "
   const servers = await readServersDat(instanceDirectory);
 
   const cleanCode = code.toUpperCase();
-  const serverName = `§d§l[Onyx Room] §f${hostName} §7(${cleanCode})`;
+  const serverName = `§d§l[Scope Room] §f${hostName} §7(${cleanCode})`;
 
   const existingIdx = servers.findIndex(
     (s) =>
       s.ip === address ||
       (s.name && s.name.includes(`(${cleanCode})`)) ||
-      (s.name && s.name.includes("[Onyx Room]") && s.name.includes(cleanCode))
+      (s.name && (s.name.includes("[Scope Room]") || s.name.includes("[Onyx Room]")) && s.name.includes(cleanCode))
   );
 
   const newEntry = {
@@ -412,11 +412,11 @@ async function injectRoomServer(instanceDirectory, { code, address, hostName = "
   }
 
   await writeServersDat(instanceDirectory, servers);
-  console.log(`[servers-dat] Injected Onyx Room server into ${instanceDirectory}/servers.dat -> ${address}`);
+  console.log(`[servers-dat] Injected Scope Room server into ${instanceDirectory}/servers.dat -> ${address}`);
 }
 
 /**
- * Remove an Onyx Room server from servers.dat by room code.
+ * Remove a Scope/Onyx Room server from servers.dat by room code.
  *
  * @param {string} instanceDirectory
  * @param {string} code
@@ -430,13 +430,13 @@ async function removeRoomServer(instanceDirectory, code) {
     (s) =>
       !(
         (s.name && s.name.includes(`(${cleanCode})`)) ||
-        (s.name && s.name.includes("[Onyx Room]") && s.name.includes(cleanCode))
+        (s.name && (s.name.includes("[Scope Room]") || s.name.includes("[Onyx Room]")) && s.name.includes(cleanCode))
       )
   );
 
   if (filtered.length !== servers.length) {
     await writeServersDat(instanceDirectory, filtered);
-    console.log(`[servers-dat] Removed Onyx Room ${cleanCode} from servers.dat`);
+    console.log(`[servers-dat] Removed Scope Room ${cleanCode} from servers.dat`);
   }
 }
 

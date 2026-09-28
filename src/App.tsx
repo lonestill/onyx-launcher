@@ -180,7 +180,11 @@ export default function App() {
 
     void window.onyx?.state?.getPendingDeepLink?.().then((pending) => {
       if (pending) {
-        if (pending.includes("party/") || pending.startsWith("onyx://party/")) {
+        if (
+          pending.includes("party/") ||
+          pending.startsWith("scope://party/") ||
+          pending.startsWith("onyx://party/")
+        ) {
           setJoinPartyInitialCode(pending);
           setJoinPartyOpen(true);
         } else {

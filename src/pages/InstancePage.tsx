@@ -112,7 +112,7 @@ interface InstancePageProps {
   onBack: () => void;
   onPlay: (
     instance: GameInstance,
-    options?: { multiClient?: boolean; username?: string },
+    options?: { multiClient?: boolean; username?: string; serverAddress?: string },
   ) => void;
   onCheck: (instance: GameInstance) => void;
   onSettings: (instance: GameInstance) => void;
@@ -236,11 +236,16 @@ export function InstancePage({
   const [partyCreating, setPartyCreating] = useState(false);
   const [partyCopied, setPartyCopied] = useState(false);
   const [partyGuideOpen, setPartyGuideOpen] = useState(true);
+  const [isPartyHost, setIsPartyHost] = useState(false);
+  const [guestProxyPort, setGuestProxyPort] = useState<number | null>(null);
 
   // Subscribe to room updates once on mount
   useEffect(() => {
     const unsubUpdate = window.onyx.party.onRoomUpdate((state) => {
       setPartyRoom(state);
+      if (state && typeof state.guestProxyPort === "number") {
+        setGuestProxyPort(state.guestProxyPort);
+      }
     });
     const unsubLan = window.onyx.party.onLanDetected?.((info) => {
       setPartyLanInfo(info);
@@ -250,6 +255,8 @@ export function InstancePage({
       if (s.inRoom && s.room) {
         setPartyRoom(s.room);
         if (s.instanceId) setPartyInstanceId(s.instanceId);
+        setIsPartyHost(Boolean(s.isHost));
+        if (s.guestProxyPort) setGuestProxyPort(s.guestProxyPort);
       }
     }).catch(() => undefined);
     return () => {
@@ -280,7 +287,7 @@ export function InstancePage({
 
   const handlePartyCopyCode = useCallback(() => {
     if (!partyRoom) return;
-    const text = `onyx://party/${partyRoom.code}`;
+    const text = `scope://party/${partyRoom.code}`;
     void navigator.clipboard.writeText(text).then(() => {
       setPartyCopied(true);
       setTimeout(() => setPartyCopied(false), 2000);
@@ -296,14 +303,28 @@ export function InstancePage({
       if (ms <= 0) { setPartyTimeLeft(""); return; }
       const h = Math.floor(ms / 3600000);
       const m = Math.floor((ms % 3600000) / 60000);
-      setPartyTimeLeft(h > 0 ? `${h}ч ${m}м` : `${m}м`);
+      setPartyTimeLeft(h > 0 ? t("party.timeLeftHours", { h, m }) : t("party.timeLeftMinutes", { m }));
     };
     update();
     const id = setInterval(update, 30000);
     return () => clearInterval(id);
-  }, [partyRoom]);
+  }, [partyRoom, t]);
 
   const isRoomForThisInstance = Boolean(partyRoom && (!partyInstanceId || partyInstanceId === instance.id));
+  const isGuestJoinReady = Boolean(
+    isRoomForThisInstance &&
+      !isPartyHost &&
+      partyRoom &&
+      (partyRoom.status === "hosting" || guestProxyPort),
+  );
+
+  const handleHeroPlay = useCallback(() => {
+    if (isGuestJoinReady && guestProxyPort) {
+      onPlay(instance, { serverAddress: `127.0.0.1:${guestProxyPort}` });
+    } else {
+      onPlay(instance);
+    }
+  }, [isGuestJoinReady, guestProxyPort, onPlay, instance]);
 
   const loadScreenshots = useCallback(async () => {
     try {
@@ -1443,12 +1464,14 @@ export function InstancePage({
             </button>
           )}
           <button
-            className="button button--primary instance-hero__play"
+            className={`button button--primary instance-hero__play ${isGuestJoinReady ? "button--party-join" : ""}`}
             disabled={instance.status === "installing"}
-            onClick={() => onPlay(instance)}
+            onClick={handleHeroPlay}
           >
             {instance.status === "installing" ? (
               <LoaderCircle className="spin" size={16} />
+            ) : isGuestJoinReady ? (
+              <Users2 size={16} />
             ) : (
               <Play size={16} fill="currentColor" />
             )}
@@ -1456,7 +1479,9 @@ export function InstancePage({
               ? (instance.runningCount && instance.runningCount > 1
                   ? `${t("home.action.stop")} (${instance.runningCount})`
                   : t("home.action.stop"))
-              : t("home.action.play")}
+              : isGuestJoinReady
+                ? t("party.button.joinHost")
+                : t("home.action.play")}
           </button>
         </div>
       </section>
@@ -1541,7 +1566,7 @@ export function InstancePage({
                       <span className="party-card__code-label">{t("party.section.code")}</span>
                       <span className="party-card__code-val">{partyRoom.code}</span>
                     </div>
-                    <span className="party-card__code-link">onyx://party/{partyRoom.code}</span>
+                    <span className="party-card__code-link">scope://party/{partyRoom.code}</span>
                   </div>
 
                   <div className="party-card__network-status">

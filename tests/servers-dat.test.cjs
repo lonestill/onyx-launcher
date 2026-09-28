@@ -65,7 +65,7 @@ test("servers-dat: read, write, inject and remove room server", async () => {
     assert.equal(readBack[0].name, "My Server");
     assert.equal(readBack[0].ip, "play.example.com");
 
-    // 3. Inject Onyx Room
+    // 3. Inject Scope Room
     await injectRoomServer(tmpDir, {
       code: "ARC-123",
       address: "127.0.0.1:49152",

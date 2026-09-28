@@ -510,7 +510,7 @@ class RoomSession {
 
       const hostName = this.roomState?.hostDisplayName || this.code;
       const motdMsg = Buffer.from(
-        `[MOTD]§a§l[Onyx Room] §f${hostName}[/MOTD][AD]${this.guestProxyPort}[/AD]`,
+        `[MOTD]§a§l[Scope Room] §f${hostName}[/MOTD][AD]${this.guestProxyPort}[/AD]`,
         "utf8"
       );
 

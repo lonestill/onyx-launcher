@@ -27,7 +27,7 @@ interface JoinPartyModalProps {
 function extractRoomCode(input: string): string {
   if (!input) return "";
   const trimmed = input.trim();
-  const match = trimmed.match(/^onyx:\/\/party\/([a-zA-Z0-9_-]+)/i) || trimmed.match(/\/party\/([a-zA-Z0-9_-]+)/i);
+  const match = trimmed.match(/^(?:scope|onyx):\/\/party\/([a-zA-Z0-9_-]+)/i) || trimmed.match(/\/party\/([a-zA-Z0-9_-]+)/i);
   if (match) return match[1].toUpperCase();
   return trimmed.toUpperCase();
 }
@@ -40,8 +40,7 @@ export function JoinPartyModal({
   onJoinSuccess,
   onNotify,
 }: JoinPartyModalProps) {
-  const { t, locale } = useI18n();
-  const isRu = locale === "ru";
+  const { t } = useI18n();
 
   const [inputVal, setInputVal] = useState("");
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>("");
@@ -101,7 +100,7 @@ export function JoinPartyModal({
   const handleJoin = useCallback(async () => {
     const code = extractRoomCode(inputVal);
     if (!code) {
-      setError(isRu ? "Введите код комнаты" : "Enter a room code");
+      setError(t("party.joinModal.error.enterCode"));
       return;
     }
     setJoining(true);
@@ -134,13 +133,13 @@ export function JoinPartyModal({
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(msg || (isRu ? "Не удалось подключиться к комнате" : "Failed to join room"));
+      setError(msg || t("party.joinModal.error.failed"));
       setRoom(null);
       setDiff(null);
     } finally {
       setJoining(false);
     }
-  }, [inputVal, selectedInstanceId, instances, isRu]);
+  }, [inputVal, selectedInstanceId, instances, t]);
 
   const handleSyncMods = useCallback(async () => {
     if (!selectedInstance || !diff) return;
@@ -172,19 +171,15 @@ export function JoinPartyModal({
       if (res.installed.length > 0) {
         onNotify(
           "success",
-          isRu ? "Моды синхронизированы" : "Mods synced",
-          isRu
-            ? `Успешно установлено ${res.installed.length} модов.`
-            : `Successfully installed ${res.installed.length} mods.`,
+          t("party.joinModal.syncSuccessTitle"),
+          t("party.joinModal.syncSuccessDesc", { count: res.installed.length }),
         );
       }
       if (res.failed.length > 0) {
         onNotify(
           "warning",
-          isRu ? "Часть модов не найдена" : "Some mods not found",
-          isRu
-            ? `${res.failed.length} модов не удалось скачать автоматически с Modrinth.`
-            : `${res.failed.length} mods could not be downloaded automatically from Modrinth.`,
+          t("party.joinModal.syncPartialTitle"),
+          t("party.joinModal.syncPartialDesc", { count: res.failed.length }),
         );
       }
 
@@ -194,14 +189,14 @@ export function JoinPartyModal({
     } catch (err) {
       onNotify(
         "warning",
-        isRu ? "Ошибка синхронизации" : "Sync error",
+        t("party.joinModal.syncError"),
         err instanceof Error ? err.message : String(err),
       );
     } finally {
       setSyncing(false);
       setSyncProgress(null);
     }
-  }, [selectedInstance, diff, isRu, onNotify]);
+  }, [selectedInstance, diff, onNotify, t]);
 
   const handleLaunch = () => {
     if (!selectedInstance || !room) return;
@@ -228,23 +223,21 @@ export function JoinPartyModal({
 
           <div className="modal__eyebrow">
             <Users2 size={14} />
-            <span>ONYX ROOM · P2P MULTIPLAYER</span>
+            <span>{t("party.joinModal.badge")}</span>
           </div>
 
-          <h2>{isRu ? "Подключение к комнате" : "Join Onyx Room"}</h2>
+          <h2>{t("party.joinModal.title")}</h2>
           <p className="modal__subtitle">
-            {isRu
-              ? "Введите 6-значный код комнаты хоста (например, ARC-451) или вставьте ссылку."
-              : "Enter the 6-character room code (e.g. ARC-451) or paste the room link."}
+            {t("party.joinModal.subtitle")}
           </p>
 
           <label className="field" style={{ marginTop: 0, marginBottom: 16 }}>
-            <span>{isRu ? "Код комнаты или ссылка" : "Room Code or Link"}</span>
+            <span>{t("party.joinModal.inputLabel")}</span>
             <div className="field__control" style={{ paddingRight: 4 }}>
               <Users2 size={16} />
               <input
                 autoFocus
-                placeholder="ARC-451 или onyx://party/..."
+                placeholder={t("party.joinModal.inputPlaceholder")}
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 onKeyDown={(e) => {
@@ -263,7 +256,7 @@ export function JoinPartyModal({
                   <Loader2 size={14} className="spin" />
                 ) : (
                   <>
-                    <span>{isRu ? "Найти" : "Connect"}</span>
+                    <span>{t("party.joinModal.connect")}</span>
                     <ArrowRight size={14} />
                   </>
                 )}
@@ -273,7 +266,7 @@ export function JoinPartyModal({
 
           {instances.length > 0 && (
             <label className="field" style={{ marginBottom: 16 }}>
-              <span>{isRu ? "Сборка для игры" : "Local instance to play"}</span>
+              <span>{t("party.joinModal.instanceLabel")}</span>
               <div className="field__control field__control--select">
                 <Box size={16} />
                 <select
@@ -304,11 +297,11 @@ export function JoinPartyModal({
                 <div className="instance-preview__glow" />
                 <span>{room.code.slice(0, 3)}</span>
                 <div>
-                  <strong>{isRu ? `Комната ${room.code}` : `Room ${room.code}`}</strong>
+                  <strong>{t("party.joinModal.roomName", { code: room.code })}</strong>
                   <small>
-                    {isRu ? "Статус: " : "Status: "}
-                    {room.status === "hosting" ? (isRu ? "Мир запущен" : "Hosting") : (isRu ? "Ожидание хоста" : "Waiting")} ·{" "}
-                    {room.peers.length} {isRu ? "игроков" : "players"}
+                    {t("party.joinModal.statusLabel")}
+                    {room.status === "hosting" ? t("party.joinModal.statusHosting") : t("party.joinModal.statusWaiting")} ·{" "}
+                    {t("party.joinModal.players", { count: room.peers.length })}
                   </small>
                 </div>
               </div>
@@ -340,14 +333,14 @@ export function JoinPartyModal({
                     )}
                     <span style={{ fontWeight: 600 }}>
                       {diff.identical
-                        ? (isRu ? "Сборка полностью совпадает с хостом!" : "Instance matches host perfectly!")
+                        ? t("party.joinModal.diffIdentical")
                         : diff.compatible
-                          ? (isRu ? "Сборка совместима (отличаются только клиентские моды)" : "Compatible (only client-side mods differ)")
-                          : (diff.loaderMismatch
-                              ? (isRu ? "Несовпадение версий игры или загрузчика!" : "Minecraft or loader version mismatch!")
-                              : (isRu
-                                  ? `Несовпадение модов: ${(diff.criticalMissing || diff.missing).length} отсутствует.`
-                                  : `Mod mismatch: ${(diff.criticalMissing || diff.missing).length} missing.`))}
+                          ? t("party.joinModal.diffCompatible")
+                          : diff.loaderMismatch
+                            ? t("party.joinModal.diffLoaderMismatch")
+                            : t("party.joinModal.diffModMismatch", {
+                                count: (diff.criticalMissing || diff.missing).length,
+                              })}
                     </span>
                   </div>
 
@@ -364,13 +357,13 @@ export function JoinPartyModal({
                       }}
                     >
                       <div>
-                        <span style={{ color: "var(--text-soft)", display: "block" }}>{isRu ? "У хоста:" : "Host:"}</span>
+                        <span style={{ color: "var(--text-soft)", display: "block" }}>{t("party.joinModal.hostSpecs")}</span>
                         <strong style={{ color: "#a3e635" }}>
                           {diff.hostManifest.minecraftVersion} ({diff.hostManifest.loader})
                         </strong>
                       </div>
                       <div>
-                        <span style={{ color: "var(--text-soft)", display: "block" }}>{isRu ? "Выбрано у вас:" : "Selected instance:"}</span>
+                        <span style={{ color: "var(--text-soft)", display: "block" }}>{t("party.joinModal.yourSpecs")}</span>
                         <strong style={{ color: diff.loaderMismatch ? "#ef4444" : "#a3e635" }}>
                           {selectedInstance.version} ({selectedInstance.loader})
                         </strong>
@@ -380,9 +373,7 @@ export function JoinPartyModal({
 
                   {diff.loaderMismatch && (
                     <span style={{ color: "var(--text-soft)", fontSize: "11px", lineHeight: "1.4" }}>
-                      {isRu
-                        ? "Выберите сборку с такой же версией Minecraft и тем же загрузчиком (Fabric/Forge) в выпадающем списке выше."
-                        : "Select a local instance with the same Minecraft version and loader (Fabric/Forge) from the dropdown above."}
+                      {t("party.joinModal.loaderMismatchHint")}
                     </span>
                   )}
 
@@ -411,7 +402,7 @@ export function JoinPartyModal({
                           <>
                             <Loader2 size={14} className="spin" />
                             <span>
-                              {isRu ? "Синхронизация..." : "Syncing..."}{" "}
+                              {t("party.joinModal.syncing")}{" "}
                               {syncProgress
                                 ? `${syncProgress.percent}% (${syncProgress.current}/${syncProgress.total} · ${syncProgress.modName})`
                                 : ""}
@@ -421,9 +412,9 @@ export function JoinPartyModal({
                           <>
                             <Download size={14} />
                             <span>
-                              {isRu
-                                ? `Синхронизировать моды (${diff.missing.length + diff.outdated.length}) в 1 клик`
-                                : `Sync mods (${diff.missing.length + diff.outdated.length}) in 1 click`}
+                              {t("party.joinModal.syncButton", {
+                                count: diff.missing.length + diff.outdated.length,
+                              })}
                             </span>
                           </>
                         )}
@@ -464,9 +455,7 @@ export function JoinPartyModal({
                     >
                       <CheckCircle2 size={13} color="#a3e635" />
                       <span>
-                        {isRu
-                          ? `Direct Connect: 127.0.0.1:${room.guestProxyPort} (добавлен в servers.dat)`
-                          : `Direct Connect: 127.0.0.1:${room.guestProxyPort} (injected into servers.dat)`}
+                        {t("party.joinModal.directConnect", { port: room.guestProxyPort })}
                       </span>
                     </div>
                   )}
@@ -487,7 +476,7 @@ export function JoinPartyModal({
                 disabled={!selectedInstance}
               >
                 <Play size={15} fill="currentColor" />
-                <span>{isRu ? "Войти в игру" : "Launch & Play"}</span>
+                <span>{t("party.joinModal.launch")}</span>
               </button>
             )}
           </div>

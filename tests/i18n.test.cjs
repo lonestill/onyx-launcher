@@ -78,6 +78,86 @@ test("Russian locale covers every English key", () => {
   assert.deepEqual(missing, [], `ru is missing ${missing.length} keys`);
 });
 
+test("English locale covers every Russian key", () => {
+  const en = loadEn(enPath);
+  const ru = loadRu(ruPath);
+  const ruKeys = Object.keys(ru);
+  assert.ok(ruKeys.length > 100, "Russian dictionary should be substantial");
+  const missing = ruKeys.filter((key) => !(key in en));
+  assert.deepEqual(missing, [], `en is missing ${missing.length} keys`);
+});
+
+test("Scope Party and 1-Click Join keys exist in both locales", () => {
+  const en = loadEn(enPath);
+  const ru = loadRu(ruPath);
+  const requiredKeys = [
+    "party.button.joinHost",
+    "party.button.create",
+    "party.button.close",
+    "party.status.waiting",
+    "party.status.hosting",
+    "party.status.closed",
+    "party.section.title",
+    "party.section.code",
+    "party.section.copied",
+    "party.section.copy",
+    "party.section.peers",
+    "party.section.host",
+    "party.section.guest",
+    "party.section.ready",
+    "party.section.waiting",
+    "party.section.expires",
+    "party.section.shareLink",
+    "party.timeLeftHours",
+    "party.timeLeftMinutes",
+    "party.joinModal.badge",
+    "party.joinModal.title",
+    "party.joinModal.subtitle",
+    "party.joinModal.inputLabel",
+    "party.joinModal.inputPlaceholder",
+    "party.joinModal.connect",
+    "party.joinModal.instanceLabel",
+    "party.joinModal.error.enterCode",
+    "party.joinModal.error.failed",
+    "party.joinModal.syncSuccessTitle",
+    "party.joinModal.syncSuccessDesc",
+    "party.joinModal.syncPartialTitle",
+    "party.joinModal.syncPartialDesc",
+    "party.joinModal.syncError",
+    "party.joinModal.roomName",
+    "party.joinModal.statusLabel",
+    "party.joinModal.statusHosting",
+    "party.joinModal.statusWaiting",
+    "party.joinModal.players",
+    "party.joinModal.diffIdentical",
+    "party.joinModal.diffCompatible",
+    "party.joinModal.diffLoaderMismatch",
+    "party.joinModal.diffModMismatch",
+    "party.joinModal.hostSpecs",
+    "party.joinModal.yourSpecs",
+    "party.joinModal.loaderMismatchHint",
+    "party.joinModal.syncing",
+    "party.joinModal.syncButton",
+    "party.joinModal.directConnect",
+    "party.joinModal.launch",
+  ];
+  for (const key of requiredKeys) {
+    assert.ok(en[key], `en is missing required key "${key}"`);
+    assert.ok(ru[key], `ru is missing required key "${key}"`);
+  }
+});
+
+test("No obsolete Onyx Room branding remains in locale files", () => {
+  const en = loadEn(enPath);
+  const ru = loadRu(ruPath);
+  for (const [key, val] of Object.entries(en)) {
+    assert.doesNotMatch(val, /Onyx\s+Room/i, `en["${key}"] contains obsolete branding "Onyx Room"`);
+  }
+  for (const [key, val] of Object.entries(ru)) {
+    assert.doesNotMatch(val, /Onyx\s+Room/i, `ru["${key}"] contains obsolete branding "Onyx Room"`);
+  }
+});
+
 test("Russian translations are non-empty", () => {
   const ru = loadRu(ruPath);
   const empty = Object.entries(ru)
