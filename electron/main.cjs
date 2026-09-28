@@ -42,7 +42,10 @@ const {
   analyzeInstanceStorage,
   cleanupInstanceStorage,
 } = require("./services/instance-storage.cjs");
-const { analyzeMinecraftLog } = require("./services/log-analysis.cjs");
+const {
+  analyzeMinecraftLog,
+  extractCrashReport,
+} = require("./services/log-analysis.cjs");
 const { checkInstanceHealth } = require("./services/preflight.cjs");
 const { getOnyxPicks } = require("./services/picks.cjs");
 const screenshotsService = require("./services/screenshots.cjs");
@@ -3008,6 +3011,27 @@ function registerIpc() {
                 suspects: suspects.slice(0, 12),
               });
             }
+
+            const crashReport = await extractCrashReport({
+              instanceDirectory,
+              logContent,
+              exitCode: code,
+            });
+
+            const topDiag = diagnoses[0];
+            const culprit = crashReport.suspectedCulprit || topDiag?.suspects?.[0] || null;
+            const errorTitle = crashReport.errorTitle || topDiag?.title || `Minecraft crash (exit code ${code})`;
+            const stackTrace = crashReport.stackTrace || (logContent.slice(-2500) || `Process exited with code ${code}`);
+
+            if (crashReport.foundCrashReport) {
+              diagnoses.unshift({
+                code: "crash-report",
+                severity: "error",
+                title: crashReport.errorTitle,
+                message: crashReport.stackTrace.slice(0, 600),
+                suspects: culprit ? [culprit] : [],
+              });
+            }
           }
           const minutes = Math.max(
             1,
@@ -3028,6 +3052,20 @@ function registerIpc() {
           instance.playtimeMinutes =
             Number(instance.playtimeMinutes || 0) + minutes;
           instance.status = "ready";
+
+          if (telemetryService) {
+            void telemetryService.trackGameSession({
+              distinctId: state?.settings?.anonymousClientId,
+              instanceName: instance.name,
+              minecraftVersion: instance.versionId,
+              loader: instance.loader,
+              durationMinutes: minutes,
+              exitCode: Number.isFinite(code) ? code : null,
+              avgFps: performance?.averageFps ? Math.round(performance.averageFps) : null,
+              modCount: Array.isArray(launchMods) ? launchMods.length : 0,
+              enabled: state?.settings?.telemetry !== false,
+            }).catch(() => undefined);
+          }
           instance.lastExitCode = code;
           instance.lastLogPath = logPath;
           instance.lastDiagnosis = diagnoses[0] || null;
@@ -3308,10 +3346,11 @@ async function writeCrashLog(kind, reason) {
   const error =
     reason instanceof Error ? reason : new Error(String(reason ?? "Unknown error"));
   const logPath = path.join(app.getPath("userData"), "onyx-crash.log");
+  const stack = error.stack || error.message || String(error);
   await fsp
     .appendFile(
       logPath,
-      `[${new Date().toISOString()}] ${kind}\n${error.stack || error.message}\n\n`,
+      `[${new Date().toISOString()}] ${kind}\n${stack}\n\n`,
       "utf8",
     )
     .catch(() => undefined);

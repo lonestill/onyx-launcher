@@ -463,7 +463,7 @@ export function SkinsPage({ profile, onAccount, onNotify }: SkinsPageProps) {
                           }
                         }}
                       >
-                        🪽 Elytra
+                        Elytra
                       </button>
                     </div>
                   </div>

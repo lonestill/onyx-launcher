@@ -105,3 +105,40 @@ test("telemetry service: trackAppLaunch sends app_launch and pageview, and track
   assert.equal(gameLaunch.properties.minecraft_version, "1.21.1");
   assert.equal(gameLaunch.properties.loader_type, "Fabric");
 });
+
+test("telemetry service: trackGameSession sends game_session payload", async () => {
+  let capturedUrl = "";
+  let capturedBody = null;
+  const service = new TelemetryService({
+    captureUrl: "https://onyx-launcher-hub.vercel.app/api/v1/telemetry",
+    fetchFn: async (url, options) => {
+      capturedUrl = url;
+      capturedBody = JSON.parse(options.body);
+      return { ok: true, status: 200 };
+    },
+  });
+
+  const res = await service.trackGameSession({
+    distinctId: "client-abc",
+    instanceName: "123",
+    minecraftVersion: "1.21.1",
+    loader: "Fabric",
+    durationMinutes: 45,
+    exitCode: 0,
+    avgFps: 120,
+    modCount: 15,
+  });
+
+  assert.equal(res.success, true);
+  assert.equal(capturedUrl, "https://onyx-launcher-hub.vercel.app/api/v1/telemetry");
+  assert.equal(capturedBody.event, "game_session");
+  assert.equal(capturedBody.distinct_id, "client-abc");
+  assert.equal(capturedBody.properties.instance_name, "123");
+  assert.equal(capturedBody.properties.minecraft_version, "1.21.1");
+  assert.equal(capturedBody.properties.loader, "Fabric");
+  assert.equal(capturedBody.properties.duration_minutes, 45);
+  assert.equal(capturedBody.properties.exit_code, 0);
+  assert.equal(capturedBody.properties.avg_fps, 120);
+  assert.equal(capturedBody.properties.mod_count, 15);
+});
+

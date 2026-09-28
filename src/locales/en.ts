@@ -23,6 +23,7 @@ export const en = {
   "nav.discover": "Discover",
   "nav.downloads": "Downloads",
   "nav.skins": "Profiles & skins",
+  "nav.community": "Community",
   "nav.settings": "Settings",
   "nav.picks.subtitle": "Modpacks worth installing",
   "nav.picks": "Onyx Picks",

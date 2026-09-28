@@ -19,11 +19,19 @@ const RULES = [
   {
     code: "missing-dependency",
     pattern:
-      /ModResolutionException|requires .+ but|missing (?:mandatory )?dependencies|Dependency resolution failed/i,
+      /ModResolutionException|Incompatible mods? found|(?:requires|depends on) [^\n]+ but (?:it is missing|only [^\n]+ is present)|missing (?:mandatory )?dependencies|Dependency resolution failed/i,
     severity: "error",
     title: "A mod dependency is missing",
     message:
       "Open the instance content and update its mods. The log below identifies the missing dependency.",
+  },
+  {
+    code: "class-not-found",
+    pattern: /NoClassDefFoundError|ClassNotFoundException/i,
+    severity: "error",
+    title: "Class loading failure",
+    message:
+      "A required Java class could not be loaded by the game runtime.",
   },
   {
     code: "mixin-conflict",
@@ -105,7 +113,136 @@ function analyzeMinecraftLog(content = "") {
   );
 }
 
+const fs = require("node:fs");
+const fsp = require("node:fs/promises");
+const path = require("node:path");
+
+async function extractCrashReport({ instanceDirectory, logContent = "", exitCode = 1 }) {
+  let crashFilePath = null;
+
+  const markerMatch = logContent.match(/Crash report saved to:\s*(?:#@!@#\s*)?([^\r\n#]+)/i);
+  if (markerMatch && markerMatch[1]) {
+    const candidate = markerMatch[1].trim();
+    if (fs.existsSync(candidate)) {
+      crashFilePath = candidate;
+    }
+  }
+
+  if (!crashFilePath && instanceDirectory) {
+    const crashReportsDir = path.join(instanceDirectory, "crash-reports");
+    try {
+      if (fs.existsSync(crashReportsDir)) {
+        const files = await fsp.readdir(crashReportsDir);
+        const txtFiles = files.filter((f) => f.endsWith(".txt") && f.startsWith("crash-"));
+        if (txtFiles.length > 0) {
+          const stats = await Promise.all(
+            txtFiles.map(async (f) => ({
+              file: path.join(crashReportsDir, f),
+              mtime: (await fsp.stat(path.join(crashReportsDir, f))).mtimeMs,
+            }))
+          );
+          stats.sort((a, b) => b.mtime - a.mtime);
+          if (Date.now() - stats[0].mtime < 15 * 60 * 1000) {
+            crashFilePath = stats[0].file;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (crashFilePath) {
+    try {
+      const raw = await fsp.readFile(crashFilePath, "utf8");
+      const lines = raw.split(/\r?\n/);
+      
+      let description = "";
+      let exceptionLine = "";
+      const stackLines = [];
+      let inStack = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith("Description:")) {
+          description = line.replace("Description:", "").trim();
+          continue;
+        }
+        if (!exceptionLine && (line.includes("Exception") || line.includes("Error") || line.startsWith("java.") || line.includes("NoClassDefFoundError"))) {
+          exceptionLine = line.trim();
+          inStack = true;
+        }
+        if (inStack) {
+          if (line.startsWith("-- System Details --") || (line.startsWith("-- Head --") && stackLines.length > 15)) {
+            if (line.startsWith("-- System Details --")) break;
+          }
+          stackLines.push(line);
+          if (stackLines.length >= 80) break;
+        }
+      }
+
+      const fullStack = stackLines.join("\n").trim();
+      let suspectedCulprit = null;
+      if (raw.includes("onyx-fps-agent") || raw.includes("OnyxFpsTracker")) {
+        suspectedCulprit = "onyx-fps-agent.jar (Launcher FPS Probe)";
+      } else {
+        const modMatch = raw.match(/Mod '([^']+)'/i) || raw.match(/plugin '([^']+)'/i) || raw.match(/\[([^\]]+\.jar)\]/i);
+        if (modMatch) suspectedCulprit = modMatch[1];
+      }
+
+      return {
+        foundCrashReport: true,
+        crashFilePath,
+        errorTitle: exceptionLine || description || `Crash (exit code ${exitCode})`,
+        stackTrace: fullStack || raw.slice(0, 3000),
+        suspectedCulprit,
+      };
+    } catch {
+      // fallback
+    }
+  }
+
+  const lines = logContent.split(/\r?\n/);
+  let lastErrorIdx = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i];
+    if (l.includes("Exception:") || l.includes("Error:") || l.includes("[FATAL]") || l.includes("Caused by:")) {
+      lastErrorIdx = i;
+      break;
+    }
+  }
+
+  if (lastErrorIdx !== -1) {
+    const start = Math.max(0, lastErrorIdx - 5);
+    const end = Math.min(lines.length, lastErrorIdx + 60);
+    const extractedLines = lines.slice(start, end);
+    const titleLine = lines[lastErrorIdx].trim();
+    
+    let culprit = null;
+    const chunk = extractedLines.join("\n");
+    if (chunk.includes("onyx-fps-agent") || chunk.includes("OnyxFpsTracker")) {
+      culprit = "onyx-fps-agent.jar (Launcher FPS Probe)";
+    }
+
+    return {
+      foundCrashReport: false,
+      errorTitle: titleLine.slice(0, 150) || `Process exited with code ${exitCode}`,
+      stackTrace: chunk,
+      suspectedCulprit: culprit,
+    };
+  }
+
+  return {
+    foundCrashReport: false,
+    errorTitle: `Process exited with code ${exitCode}`,
+    stackTrace: logContent.slice(-2500) || `Process exited with code ${exitCode}`,
+    suspectedCulprit: null,
+  };
+}
+
 module.exports = {
   RULES,
   analyzeMinecraftLog,
+  extractCrashReport,
 };
+

@@ -25,6 +25,7 @@ export const ru: Record<TranslationKey, string> = {
   "nav.discover": "Каталог",
   "nav.downloads": "Загрузки",
   "nav.skins": "Профили и скины",
+  "nav.community": "Сообщество",
   "nav.settings": "Настройки",
   "nav.picks.subtitle": "Модпаки, которые стоит установить",
   "nav.picks": "Подборки Onyx",

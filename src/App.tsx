@@ -73,6 +73,11 @@ const InstancePage = lazy(() =>
     default: module.InstancePage,
   })),
 );
+const CommunityPage = lazy(() =>
+  import("./pages/CommunityPage").then((module) => ({
+    default: module.CommunityPage,
+  })),
+);
 
 export default function App() {
   const { locale, t } = useI18n();
@@ -1246,6 +1251,15 @@ export default function App() {
           <SkinsPage
             profile={state.profile}
             onAccount={() => setAccountOpen(true)}
+            onNotify={(tone, title, message) =>
+              pushToast(tone, title, message, 6200)
+            }
+          />
+        );
+      case "community":
+        return (
+          <CommunityPage
+            settings={state.settings}
             onNotify={(tone, title, message) =>
               pushToast(tone, title, message, 6200)
             }

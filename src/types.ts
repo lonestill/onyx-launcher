@@ -5,6 +5,7 @@ export type RouteId =
   | "downloads"
   | "instance"
   | "skins"
+  | "community"
   | "settings";
 
 export type Accent = "lime" | "violet" | "cyan";

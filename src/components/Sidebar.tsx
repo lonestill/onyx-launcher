@@ -3,6 +3,7 @@ import {
   ChevronDown,
   CircleUserRound,
   ExternalLink,
+  MessageSquareHeart,
   Settings,
 } from "lucide-react";
 import { DiscordIcon } from "./DiscordIcon";
@@ -75,6 +76,21 @@ export function Sidebar({
           <span>{t("nav.discord")}</span>
           <ExternalLink size={12} className="nav-item__ext" />
         </a>
+
+        <button
+          className={`nav-item ${activeRoute === "community" ? "is-active" : ""}`}
+          onClick={() => onNavigate("community")}
+        >
+          {activeRoute === "community" && (
+            <motion.span
+              layoutId="active-nav"
+              className="nav-item__active"
+              transition={{ type: "spring", stiffness: 420, damping: 35 }}
+            />
+          )}
+          <MessageSquareHeart size={18} strokeWidth={activeRoute === "community" ? 2.5 : 2} />
+          <span>{t("nav.community")}</span>
+        </button>
 
         <button
           className={`nav-item ${activeRoute === "settings" ? "is-active" : ""}`}

@@ -432,6 +432,7 @@ class FpsRecorder {
         status: this.status,
         wrapper: null,
         extraJvmArguments: [
+          `-Xbootclasspath/a:${agentPath}`,
           `-javaagent:${agentPath}=${this.outputFile}`,
         ],
       };

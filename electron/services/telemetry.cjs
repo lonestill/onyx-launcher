@@ -1,13 +1,11 @@
 const crypto = require("node:crypto");
 
-const POSTHOG_API_KEY = "phc_mFU3DreV8wP9q2CrXFdm8T2FxVCX8rwb5fp9DWpGSvzN";
-const POSTHOG_CAPTURE_URL = "https://us.i.posthog.com/capture/";
+const ONYX_HUB_URL = process.env.ONYX_HUB_URL || "https://onyx-launcher-hub.vercel.app/api/v1/telemetry";
 const DEFAULT_TIMEOUT_MS = 4000;
 
 class TelemetryService {
   constructor(options = {}) {
-    this.apiKey = options.apiKey || POSTHOG_API_KEY;
-    this.captureUrl = options.captureUrl || POSTHOG_CAPTURE_URL;
+    this.captureUrl = options.captureUrl || ONYX_HUB_URL;
     this.fetchFn = options.fetchFn || globalThis.fetch;
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
   }
@@ -122,10 +120,39 @@ class TelemetryService {
       { enabled },
     );
   }
+
+  trackGameSession({
+    distinctId,
+    enabled = true,
+    instanceName,
+    minecraftVersion,
+    loader,
+    durationMinutes,
+    exitCode,
+    avgFps,
+    modCount,
+  } = {}) {
+    return this.track(
+      distinctId,
+      "game_session",
+      {
+        instance_name: instanceName || "Minecraft",
+        minecraft_version: minecraftVersion || "unknown",
+        loader: loader || "Vanilla",
+        duration_minutes: Math.max(1, Number(durationMinutes || 1)),
+        exit_code: typeof exitCode === "number" ? exitCode : null,
+        avg_fps: typeof avgFps === "number" ? avgFps : null,
+        mod_count: Number(modCount || 0),
+        $device_type: "Desktop",
+      },
+      { enabled },
+    );
+  }
 }
 
 module.exports = {
   TelemetryService,
-  POSTHOG_API_KEY,
-  POSTHOG_CAPTURE_URL,
+  ONYX_HUB_URL,
+  POSTHOG_API_KEY: "",
+  POSTHOG_CAPTURE_URL: ONYX_HUB_URL,
 };

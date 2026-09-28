@@ -136,7 +136,7 @@ export const CAPE_PRESETS: CapePreset[] = [
   },
   {
     id: 'elytra',
-    name: '🪽 Vanilla Elytra',
+    name: 'Vanilla Elytra',
     type: 'elytra',
     getDataUrl: () => createVanillaElytraTexture(),
   },
