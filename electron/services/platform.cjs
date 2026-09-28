@@ -1,3 +1,4 @@
+const fs = require("node:fs");
 const path = require("node:path");
 
 function minecraftOsName(platform = process.platform) {
@@ -52,13 +53,25 @@ function defaultDataRoot({
   home,
   appData,
 }) {
-  if (env.ONYX_DATA_ROOT) return path.resolve(env.ONYX_DATA_ROOT);
-  if (platform === "win32") return path.join(appData, ".onyx");
-  if (platform === "darwin") return path.join(appData, "Onyx Launcher");
-  if (env.XDG_DATA_HOME && path.isAbsolute(env.XDG_DATA_HOME)) {
-    return path.join(env.XDG_DATA_HOME, "onyx-launcher");
+  if (env.SCOPE_DATA_ROOT || env.ONYX_DATA_ROOT) return path.resolve(env.SCOPE_DATA_ROOT || env.ONYX_DATA_ROOT);
+  if (platform === "win32") {
+    const scopeDir = path.join(appData, ".scope");
+    const onyxDir = path.join(appData, ".onyx");
+    return fs.existsSync(onyxDir) && !fs.existsSync(scopeDir) ? onyxDir : scopeDir;
   }
-  return path.join(home, ".local", "share", "onyx-launcher");
+  if (platform === "darwin") {
+    const scopeDir = path.join(appData, "Scope Launcher");
+    const onyxDir = path.join(appData, "Onyx Launcher");
+    return fs.existsSync(onyxDir) && !fs.existsSync(scopeDir) ? onyxDir : scopeDir;
+  }
+  if (env.XDG_DATA_HOME && path.isAbsolute(env.XDG_DATA_HOME)) {
+    const scopeDir = path.join(env.XDG_DATA_HOME, "scope-launcher");
+    const onyxDir = path.join(env.XDG_DATA_HOME, "onyx-launcher");
+    return fs.existsSync(onyxDir) && !fs.existsSync(scopeDir) ? onyxDir : scopeDir;
+  }
+  const scopeDir = path.join(home, ".local", "share", "scope-launcher");
+  const onyxDir = path.join(home, ".local", "share", "onyx-launcher");
+  return fs.existsSync(onyxDir) && !fs.existsSync(scopeDir) ? onyxDir : scopeDir;
 }
 
 function azulOsName(platform = process.platform) {

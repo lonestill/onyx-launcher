@@ -921,7 +921,7 @@ class MinecraftService {
     demo,
     launchWrapper,
     extraJvmArguments = [],
-    logFileName = "onyx-latest.log",
+    logFileName = "scope-latest.log",
     onLog,
     onSpawn,
     onExit,
@@ -999,7 +999,7 @@ class MinecraftService {
     };
     const variables = {
       natives_directory: nativesDirectory,
-      launcher_name: "onyx-launcher",
+      launcher_name: "scope-launcher",
       launcher_version: ONYX_VERSION,
       classpath,
       classpath_separator: path.delimiter,
@@ -1098,10 +1098,10 @@ class MinecraftService {
     }
 
     await fsp.mkdir(path.join(gameDirectory, "logs"), { recursive: true });
-    const logPath = path.join(gameDirectory, "logs", logFileName || "onyx-latest.log");
+    const logPath = path.join(gameDirectory, "logs", logFileName || "scope-latest.log");
     const logStream = fs.createWriteStream(logPath, { flags: "a" });
     logStream.write(
-      `\n[${new Date().toISOString()}] Onyx is launching ${versionId}\n`,
+      `\n[${new Date().toISOString()}] Scope is launching ${versionId}\n`,
     );
     const requiredJava =
       version.javaVersion?.majorVersion ||

@@ -1,11 +1,15 @@
 const crypto = require("node:crypto");
 
-const ONYX_HUB_URL = process.env.ONYX_HUB_URL || "https://onyx-launcher-hub.vercel.app/api/v1/telemetry";
+const SCOPE_HUB_URL =
+  process.env.SCOPE_HUB_URL ||
+  process.env.ONYX_HUB_URL ||
+  "https://scope-hub.vercel.app/api/v1/telemetry";
+const ONYX_HUB_URL = SCOPE_HUB_URL;
 const DEFAULT_TIMEOUT_MS = 4000;
 
 class TelemetryService {
   constructor(options = {}) {
-    this.captureUrl = options.captureUrl || ONYX_HUB_URL;
+    this.captureUrl = options.captureUrl || SCOPE_HUB_URL;
     this.fetchFn = options.fetchFn || globalThis.fetch;
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
   }
@@ -86,7 +90,7 @@ class TelemetryService {
       locale: locale || "unknown",
       is_packaged: Boolean(isPackaged),
       $os: platformName,
-      $browser: "Onyx Launcher",
+      $browser: "Scope Launcher",
       $device_type: "Desktop",
     };
 
@@ -96,9 +100,9 @@ class TelemetryService {
       "$pageview",
       {
         ...baseProps,
-        $current_url: `https://onyx-launcher.app/v${version || "1.6.9"}`,
-        $host: "onyx-launcher.app",
-        $pathname: `/v${version || "1.6.9"}`,
+        $current_url: `https://scope-launcher.app/v${version || "1.6.18"}`,
+        $host: "scope-launcher.app",
+        $pathname: `/v${version || "1.6.18"}`,
       },
       { enabled },
     );

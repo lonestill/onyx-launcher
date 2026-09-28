@@ -308,7 +308,7 @@ test("The platform layer selects the correct names and directories", () => {
       home: "/home/player",
       appData: "/unused",
     }),
-    path.join("/var/data", "onyx-launcher"),
+    path.join("/var/data", "scope-launcher"),
   );
 });
 

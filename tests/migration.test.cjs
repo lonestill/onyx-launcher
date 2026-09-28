@@ -15,6 +15,7 @@ const {
   inspectFeatherInstance,
   inspectDeepLogAndFolder,
   inspectCustomDirectory,
+  inspectOnyxInstance,
   migrateInstanceFiles,
   createOnyxInstanceFromCandidate,
 } = require("../electron/services/migration.cjs");
@@ -305,4 +306,37 @@ test("migration: createOnyxInstanceFromCandidate builds valid Onyx metadata", ()
   assert.equal(inst.modCount, 45);
   assert.equal(inst.status, "setup");
   assert.equal(inst.migratedFrom, "curseforge");
+});
+
+test("migration: parses legacy Onyx instance with instance.json and saves", async () => {
+  const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "onyx-inst-test-"));
+  try {
+    const instMeta = {
+      name: "Legacy Onyx Pack",
+      version: "1.20.1",
+      loader: "Fabric",
+      loaderVersion: "0.15.11",
+    };
+    await fsp.writeFile(path.join(tmp, "instance.json"), JSON.stringify(instMeta));
+    await fsp.mkdir(path.join(tmp, "mods"), { recursive: true });
+    await fsp.writeFile(path.join(tmp, "mods", "sodium.jar"), "dummy");
+    await fsp.mkdir(path.join(tmp, "saves", "World1"), { recursive: true });
+    await fsp.writeFile(path.join(tmp, "options.txt"), "fov:90");
+
+    const candidate = inspectOnyxInstance(tmp);
+    assert.ok(candidate);
+    assert.equal(candidate.name, "Legacy Onyx Pack");
+    assert.equal(candidate.version, "1.20.1");
+    assert.equal(candidate.loader, "Fabric");
+    assert.equal(candidate.modCount, 1);
+    assert.equal(candidate.worldCount, 1);
+    assert.equal(candidate.launcher, "onyx");
+
+    const onyxMeta = createOnyxInstanceFromCandidate(candidate, "uuid-migrated-1");
+    assert.equal(onyxMeta.name, "Legacy Onyx Pack");
+    assert.equal(onyxMeta.migratedFrom, "onyx");
+    assert.equal(onyxMeta.description, "Migrated from Onyx Launcher");
+  } finally {
+    await fsp.rm(tmp, { recursive: true, force: true });
+  }
 });

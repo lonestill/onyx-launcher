@@ -125,8 +125,54 @@ const { UpdaterService } = require("./services/updater.cjs");
 const { DiscordRpcService } = require("./services/discord-rpc.cjs");
 const partySvc = require("./services/party.cjs");
 
-if (process.env.ONYX_USER_DATA) {
-  app.setPath("userData", path.resolve(process.env.ONYX_USER_DATA));
+if (process.env.SCOPE_USER_DATA || process.env.ONYX_USER_DATA) {
+  app.setPath("userData", path.resolve(process.env.SCOPE_USER_DATA || process.env.ONYX_USER_DATA));
+}
+
+// Auto-migration for existing users from Onyx Launcher to Scope Launcher
+try {
+  const currentUserData = app.getPath("userData");
+  const appData = app.getPath("appData");
+  const legacyDirs = [
+    path.join(appData, "Onyx Launcher"),
+    path.join(appData, "onyx-launcher"),
+    path.join(os.homedir(), ".config", "onyx-launcher"),
+  ];
+
+  for (const legacyDir of legacyDirs) {
+    if (!fs.existsSync(legacyDir)) continue;
+
+    fs.mkdirSync(currentUserData, { recursive: true });
+
+    // Copy critical config and session files
+    const filesToMigrate = ["state.json", "account.json", "credentials.json"];
+    for (const fileName of filesToMigrate) {
+      const src = path.join(legacyDir, fileName);
+      const dest = path.join(currentUserData, fileName);
+      if (fs.existsSync(src) && !fs.existsSync(dest)) {
+        try {
+          fs.copyFileSync(src, dest);
+        } catch {
+          // Ignore copy error
+        }
+      }
+    }
+
+    // Copy helper tools if present
+    const legacyToolsDir = path.join(legacyDir, "tools");
+    const currentToolsDir = path.join(currentUserData, "tools");
+    if (fs.existsSync(legacyToolsDir) && !fs.existsSync(currentToolsDir)) {
+      try {
+        fs.cpSync(legacyToolsDir, currentToolsDir, { recursive: true });
+      } catch {
+        // Ignore copy error
+      }
+    }
+
+    break;
+  }
+} catch {
+  // Migration error is non-fatal
 }
 
 try {
@@ -646,7 +692,7 @@ function taskUpdate(task, patch) {
     Notification.isSupported()
   ) {
     new Notification({
-      title: "Onyx Launcher",
+      title: "Scope Launcher",
       body: `${task.name}: installation completed`,
       silent: false,
     }).show();
@@ -3441,7 +3487,7 @@ let pendingDeepLinkUrl = null;
 function handleDeepLinkUrl(url) {
   if (!url || typeof url !== "string") return;
   const partyMatch =
-    url.match(/^onyx:\/\/party\/([a-zA-Z0-9_-]+)/i) ||
+    url.match(/^(?:scope|onyx):\/\/party\/([a-zA-Z0-9_-]+)/i) ||
     url.match(/\/party\/([a-zA-Z0-9_-]+)/i);
   if (partyMatch) {
     const code = partyMatch[1].toUpperCase();
@@ -3470,7 +3516,7 @@ if (!gotLock) {
   app.on("second-instance", (_event, commandLine) => {
     void restoreLauncherWindow();
     const deepUrl = (commandLine || []).find(
-      (arg) => typeof arg === "string" && arg.startsWith("onyx://"),
+      (arg) => typeof arg === "string" && (arg.startsWith("scope://") || arg.startsWith("onyx://")),
     );
     if (deepUrl) {
       handleDeepLinkUrl(deepUrl);
@@ -3483,21 +3529,25 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
-    app.setAppUserModelId("app.onyx.launcher");
+    app.setAppUserModelId("app.scope.launcher");
     nativeTheme.themeSource = "dark";
 
     if (process.defaultApp) {
       if (process.argv.length >= 2) {
+        app.setAsDefaultProtocolClient("scope", process.execPath, [
+          path.resolve(process.argv[1]),
+        ]);
         app.setAsDefaultProtocolClient("onyx", process.execPath, [
           path.resolve(process.argv[1]),
         ]);
       }
     } else {
+      app.setAsDefaultProtocolClient("scope");
       app.setAsDefaultProtocolClient("onyx");
     }
 
     const startupDeepLink = process.argv.find(
-      (arg) => typeof arg === "string" && arg.startsWith("onyx://"),
+      (arg) => typeof arg === "string" && (arg.startsWith("scope://") || arg.startsWith("onyx://")),
     );
     if (startupDeepLink) {
       pendingDeepLinkUrl = startupDeepLink;

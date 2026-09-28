@@ -79,6 +79,29 @@ function getCandidateLauncherRoots() {
   const platform = process.platform;
   const roots = [];
 
+  // Onyx Launcher (Legacy)
+  if (platform === "win32") {
+    const appData = process.env.APPDATA || path.join(home, "AppData", "Roaming");
+    roots.push({
+      launcher: "onyx",
+      rootPath: path.join(appData, ".onyx", "instances"),
+    });
+    roots.push({
+      launcher: "onyx",
+      rootPath: path.join(appData, "Onyx Launcher", "instances"),
+    });
+  } else if (platform === "darwin") {
+    roots.push({
+      launcher: "onyx",
+      rootPath: path.join(home, "Library", "Application Support", "Onyx Launcher", "instances"),
+    });
+  } else {
+    roots.push({
+      launcher: "onyx",
+      rootPath: path.join(home, ".local", "share", "onyx-launcher", "instances"),
+    });
+  }
+
   // CurseForge
   if (platform === "win32") {
     const userProfile = process.env.USERPROFILE || home;
@@ -769,6 +792,61 @@ function inspectFeatherInstance(dirPath) {
 }
 
 /**
+ * Inspect a legacy Onyx Launcher instance directory
+ */
+function inspectOnyxInstance(dirPath) {
+  if (!fs.existsSync(dirPath)) return null;
+
+  const instanceJsonPath = path.join(dirPath, "instance.json");
+  const data = safeReadJsonSync(instanceJsonPath);
+
+  let name = path.basename(dirPath);
+  let version = "";
+  let loader = "Vanilla";
+  let loaderVersion = null;
+
+  if (data) {
+    if (data.name) name = String(data.name);
+    if (data.version || data.gameVersion) version = String(data.version || data.gameVersion);
+    if (data.loader) loader = normalizeLoader(data.loader);
+    if (data.loaderVersion) loaderVersion = String(data.loaderVersion);
+  }
+
+  if (!version || loader === "Vanilla") {
+    const deep = inspectDeepLogAndFolder(dirPath, "onyx");
+    if (deep) {
+      if (!version && deep.version) version = deep.version;
+      if (loader === "Vanilla" && deep.loader !== "Vanilla") loader = deep.loader;
+      if (!loaderVersion && deep.loaderVersion) loaderVersion = deep.loaderVersion;
+    }
+  }
+
+  const modCount = countFilesInDirSync(path.join(dirPath, "mods"), ".jar");
+  const worldCount = countDirsInDirSync(path.join(dirPath, "saves"));
+  const hasOptions = fs.existsSync(path.join(dirPath, "options.txt"));
+
+  if (!data && modCount === 0 && worldCount === 0 && !hasOptions && !fs.existsSync(path.join(dirPath, ".onyx"))) {
+    return null;
+  }
+
+  return {
+    id: `onyx-${crypto.createHash("md5").update(dirPath).digest("hex").slice(0, 10)}`,
+    name,
+    launcher: "onyx",
+    sourceLauncher: "onyx",
+    sourcePath: dirPath,
+    instancePath: dirPath,
+    gameDir: dirPath,
+    version: version || "1.21.1",
+    loader,
+    loaderVersion,
+    modCount,
+    worldCount,
+    hasOptions,
+  };
+}
+
+/**
  * Read Modrinth App SQLite database (app.db) if available
  */
 function readModrinthAppDb(appDbPath, profilesDir) {
@@ -984,6 +1062,16 @@ function inspectVanillaRoot(dotMinecraftPath) {
 function inspectCustomDirectory(dirPath) {
   if (!fs.existsSync(dirPath)) return null;
 
+  // 0. Check Onyx Launcher (Legacy)
+  const onyx = inspectOnyxInstance(dirPath);
+  if (
+    onyx &&
+    (fs.existsSync(path.join(dirPath, ".onyx")) ||
+      fs.existsSync(path.join(dirPath, "instance.json")))
+  ) {
+    return { ...onyx, launcher: "onyx", sourceLauncher: "onyx" };
+  }
+
   // 1. Check ATLauncher
   const atl = inspectATLauncherInstance(dirPath);
   if (atl && fs.existsSync(path.join(dirPath, "instance.json"))) {
@@ -1083,7 +1171,9 @@ async function detectAllInstalledInstances() {
       if (seenPaths.has(fullPath)) continue;
 
       let candidate = null;
-      if (launcher === "curseforge") {
+      if (launcher === "onyx") {
+        candidate = inspectOnyxInstance(fullPath);
+      } else if (launcher === "curseforge") {
         candidate = inspectCurseForgeInstance(fullPath);
       } else if (launcher === "prism") {
         candidate = inspectPrismFamilyInstance(fullPath, "prism");
@@ -1105,6 +1195,7 @@ async function detectAllInstalledInstances() {
   }
 
   const launcherDefs = [
+    { id: "onyx", name: "Onyx Launcher (Legacy)" },
     { id: "curseforge", name: "CurseForge" },
     { id: "prism", name: "Prism Launcher" },
     { id: "modrinth", name: "Modrinth App" },
@@ -1237,6 +1328,7 @@ async function migrateInstanceFiles(argsOrSource, destination, maybeProgress) {
  */
 function createOnyxInstanceFromCandidate(candidate, instanceId) {
   const colorMap = {
+    onyx: "lime",
     curseforge: "amber",
     prism: "cyan",
     modrinth: "lime",
@@ -1258,7 +1350,7 @@ function createOnyxInstanceFromCandidate(candidate, instanceId) {
     loader: candidate.loader || "Vanilla",
     loaderVersion: candidate.loaderVersion || null,
     resolvedVersionId,
-    description: `Migrated from ${launcherKey.toUpperCase()}`,
+    description: launcherKey === "onyx" ? "Migrated from Onyx Launcher" : `Migrated from ${launcherKey.toUpperCase()}`,
     color,
     glyph: candidate.name.slice(0, 2).toUpperCase(),
     favorite: false,
@@ -1274,6 +1366,7 @@ function createOnyxInstanceFromCandidate(candidate, instanceId) {
 module.exports = {
   detectAllInstalledInstances,
   inspectCustomDirectory,
+  inspectOnyxInstance,
   inspectCurseForgeInstance,
   inspectPrismInstance,
   inspectPrismFamilyInstance,

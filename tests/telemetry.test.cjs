@@ -97,7 +97,7 @@ test("telemetry service: trackAppLaunch sends app_launch and pageview, and track
   assert.equal(appLaunch.properties.is_packaged, true);
 
   assert.ok(pageview);
-  assert.equal(pageview.properties.$current_url, "https://onyx-launcher.app/v1.6.9");
+  assert.equal(pageview.properties.$current_url, "https://scope-launcher.app/v1.6.9");
   assert.equal(pageview.properties.$device_type, "Desktop");
 
   assert.ok(gameLaunch);
@@ -110,7 +110,7 @@ test("telemetry service: trackGameSession sends game_session payload", async () 
   let capturedUrl = "";
   let capturedBody = null;
   const service = new TelemetryService({
-    captureUrl: "https://onyx-launcher-hub.vercel.app/api/v1/telemetry",
+    captureUrl: "https://scope-hub.vercel.app/api/v1/telemetry",
     fetchFn: async (url, options) => {
       capturedUrl = url;
       capturedBody = JSON.parse(options.body);
@@ -130,7 +130,7 @@ test("telemetry service: trackGameSession sends game_session payload", async () 
   });
 
   assert.equal(res.success, true);
-  assert.equal(capturedUrl, "https://onyx-launcher-hub.vercel.app/api/v1/telemetry");
+  assert.equal(capturedUrl, "https://scope-hub.vercel.app/api/v1/telemetry");
   assert.equal(capturedBody.event, "game_session");
   assert.equal(capturedBody.distinct_id, "client-abc");
   assert.equal(capturedBody.properties.instance_name, "123");

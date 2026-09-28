@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("onyx", {
+const api = {
   window: {
     minimize: () => ipcRenderer.invoke("window:minimize"),
     maximize: () => ipcRenderer.invoke("window:maximize"),
@@ -313,5 +313,8 @@ contextBridge.exposeInMainWorld("onyx", {
       return () => ipcRenderer.removeListener("party:sync-progress", listener);
     },
   },
-});
+};
+
+contextBridge.exposeInMainWorld("scope", api);
+contextBridge.exposeInMainWorld("onyx", api);
 

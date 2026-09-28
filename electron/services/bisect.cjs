@@ -1,7 +1,7 @@
 const fsp = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { safeModName, snapshotMods } = require("./guard.cjs");
+const { safeModName, snapshotMods, guardRoot } = require("./guard.cjs");
 
 function resolveInstance(instancesRoot, instanceId) {
   const root = path.resolve(instancesRoot);
@@ -13,7 +13,7 @@ function resolveInstance(instancesRoot, instanceId) {
 }
 
 function sessionPath(instanceDirectory) {
-  return path.join(instanceDirectory, ".onyx", "guard", "bisect.json");
+  return path.join(guardRoot(instanceDirectory), "bisect.json");
 }
 
 async function writeSession(instanceDirectory, session) {

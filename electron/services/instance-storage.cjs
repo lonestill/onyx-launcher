@@ -37,6 +37,7 @@ const TOP_LEVEL_CATEGORIES = new Map([
   ["libraries", "runtime"],
   ["assets", "runtime"],
   ["natives", "runtime"],
+  [".scope", "metadata"],
   [".onyx", "metadata"],
 ]);
 
@@ -154,7 +155,7 @@ function cleanupCandidates(records, currentTime) {
     }
     if (
       age >= PARTIAL_RETENTION_MS &&
-      record.relative.split(/[\\/]/)[0].toLowerCase() === ".onyx" &&
+      [".scope", ".onyx"].includes(record.relative.split(/[\\/]/)[0].toLowerCase()) &&
       /(?:\.tmp(?:-|$)|\.partial$)/i.test(record.name)
     ) {
       add(record, "partial");

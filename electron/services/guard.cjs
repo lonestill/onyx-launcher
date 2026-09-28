@@ -1,9 +1,12 @@
+const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
 function guardRoot(instanceDirectory) {
-  return path.join(instanceDirectory, ".onyx", "guard");
+  const scopeDir = path.join(instanceDirectory, ".scope", "guard");
+  const onyxDir = path.join(instanceDirectory, ".onyx", "guard");
+  return fs.existsSync(onyxDir) && !fs.existsSync(scopeDir) ? onyxDir : scopeDir;
 }
 
 function baselinePath(instanceDirectory) {
@@ -146,6 +149,7 @@ async function disableSuspectMods({
 }
 
 module.exports = {
+  guardRoot,
   baselinePath,
   safeModName,
   snapshotMods,

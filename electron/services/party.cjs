@@ -29,7 +29,10 @@ const { fetchJson, downloadFile, hashFile } = require("./network.cjs");
 const { injectRoomServer, removeRoomServer } = require("./servers-dat.cjs");
 const { checkE4mcStatus, installE4mc } = require("./e4mc.cjs");
 
-const DEFAULT_HUB_URL = process.env.ONYX_HUB_URL || "https://onyx-launcher-hub.vercel.app";
+const DEFAULT_HUB_URL =
+  process.env.SCOPE_HUB_URL ||
+  process.env.ONYX_HUB_URL ||
+  "https://scope-hub.vercel.app";
 const HUB_PARTY_URL = `${DEFAULT_HUB_URL}/api/v1/party`;
 const SIGNAL_POLL_INTERVAL_MS = 1500;
 const ROOM_POLL_INTERVAL_MS = 4000;

@@ -275,13 +275,21 @@ async function installSyncMods({
   return { installed: downloads.length, skipped };
 }
 
-const DEFAULT_HUB_URL = "https://onyx-launcher-hub.vercel.app";
+const DEFAULT_HUB_URL =
+  process.env.SCOPE_HUB_URL ||
+  process.env.ONYX_HUB_URL ||
+  "https://scope-hub.vercel.app";
 
 function parseShareIdOrUrl(input) {
   if (!input || typeof input !== "string") return "";
   const trimmed = input.trim();
-  if (trimmed.startsWith("onyx://party/") || trimmed.includes("/party/")) return "";
-  const deepMatch = trimmed.match(/^onyx:\/\/pack\/([a-zA-Z0-9_-]+)/i);
+  if (
+    trimmed.startsWith("scope://party/") ||
+    trimmed.startsWith("onyx://party/") ||
+    trimmed.includes("/party/")
+  )
+    return "";
+  const deepMatch = trimmed.match(/^(?:scope|onyx):\/\/pack\/([a-zA-Z0-9_-]+)/i);
   if (deepMatch) return deepMatch[1];
   const urlMatch = trimmed.match(/\/pack\/([a-zA-Z0-9_-]+)/i);
   if (urlMatch) return urlMatch[1];
