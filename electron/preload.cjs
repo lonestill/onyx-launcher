@@ -168,6 +168,12 @@ const api = {
     exportSupportBundle: (instanceId) =>
       ipcRenderer.invoke("launcher:export-support-bundle", instanceId),
   },
+  crash: {
+    detectAutoFix: (instanceId) =>
+      ipcRenderer.invoke("instance:crash-detect-autofix", instanceId),
+    applyAutoFix: (instanceId, fixAction) =>
+      ipcRenderer.invoke("instance:crash-apply-autofix", instanceId, fixAction),
+  },
   migration: {
     detect: () => ipcRenderer.invoke("migration:detect"),
     browseFolder: () => ipcRenderer.invoke("migration:browse-folder"),

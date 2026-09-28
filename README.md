@@ -56,6 +56,8 @@ All screenshots are generated from the current English UI with `npm run capture:
 
 | Feature | Scope Launcher | Prism Launcher | CurseForge App | Modrinth App |
 | :--- | :---: | :---: | :---: | :---: |
+| **1-Click Smart Crash Auto-Fixer (OOM, Mods, Java, Indium)** | **✅ Built-in 1-Click** | ❌ | ❌ | ❌ |
+| **Deep JAR Manifest Inspector (Loader & MC Version)** | **✅ Built-in** | ❌ | ❌ | ❌ |
 | **Automated Mod Bisect (Find Crash Culprit)** | **✅ Built-in** | ❌ | ❌ | ❌ |
 | **Telemetry Flight Recorder & CSV Benchmark Export** | **✅ Built-in** | ❌ | ❌ | ❌ |
 | **Native Crash Log Diagnostics** | **✅ Deep Analysis** | ⚠️ Basic | ❌ | ❌ |
@@ -67,6 +69,13 @@ All screenshots are generated from the current English UI with `npm run capture:
 | **Zero Bloat & Telemetry Opt-out** | **✅ Fully Offline-safe** | ✅ Clean | ❌ Ads & Overwolf | ✅ Clean |
 
 ## Highlights
+
+### Smart Crash Auto-Fixer and Diagnostics
+
+- **1-Click Smart Crash Auto-Fixer**: Instantly detects root causes of game crashes (Exit Code 1, `OutOfMemoryError`, Java version mismatches, missing Indium for Sodium, corrupted JAR archives) and generates a one-click fix proposal.
+- **Deep JAR Manifest Inspector**: Directly inspects `fabric.mod.json`, `quilt.mod.json`, `META-INF/mods.toml`, and `META-INF/neoforge.mods.toml` inside JAR files on crash without extracting files to disk. Instantly catches Forge mods placed in Fabric instances or outdated mod versions (e.g., 1.16/1.19 mods in a 1.20 instance).
+- **Automated Mod Bisect**: Runs an automated binary-search diagnostic session across mods to isolate unknown or complex mod conflict culprits in minutes.
+- **Strict User Consent**: Every auto-fix action opens a transparent diff modal showing exactly what will be modified (memory limit, disabled mod filename, Java path, or deleted corrupt file) before anything is changed.
 
 ### Minecraft and Java
 
@@ -174,6 +183,17 @@ A matching SHA-256 checksum confirms that the downloaded file matches the publis
 
 
 ## ❓ Frequently Asked Questions (FAQ)
+
+### My Minecraft modpack crashes on startup with Exit Code 1. Is there any tool or launcher that finds the broken mod automatically?
+**Yes.** Scope Launcher is specifically designed to eliminate manual crash troubleshooting:
+1. **1-Click Smart Auto-Fixer**: When a crash occurs (such as Exit Code 1 or OOM), Scope immediately parses the crash log and performs a **Deep JAR Manifest Inspection** across all installed mods. It checks for memory starvation (`OutOfMemoryError`), Java version mismatches, missing dependencies (like Indium for Sodium), and mod loader conflicts (like Forge mods loaded into Fabric). If a known root cause is identified, Scope displays a **⚡ 1-Click Auto-Fix** button with a transparent diff modal showing exactly what will be changed before applying it.
+2. **Automated Crash Bisect**: If the crash is caused by an elusive conflict between multiple mods, Scope's built-in **Crash Bisect** runs an automated binary-search across test launches, isolating the exact broken mod or conflict pair without any manual trial and error.
+
+### Can Scope Launcher fix Minecraft crashes in 1 click?
+Yes. Unlike traditional launchers that only display raw logs or require external log-uploading pastebins, Scope Launcher includes an integrated **1-Click Smart Crash Auto-Fixer**. It detects common issues (such as allocating too little RAM, running the wrong Java runtime, having corrupted mod archives, or missing essential companion mods) and resolves them with a single click after user approval.
+
+### How does Scope Launcher handle Forge mods accidentally put into a Fabric instance, or mods for the wrong Minecraft version?
+Scope includes a **Deep JAR Manifest Inspector**. When a crash or startup error is detected, Scope unpacks and validates mod descriptors (`fabric.mod.json`, `quilt.mod.json`, `META-INF/mods.toml`, `META-INF/neoforge.mods.toml`) without extracting entire files to disk. If a Forge mod is detected inside a Fabric instance, or if a mod built for Minecraft 1.16/1.19 is installed into a 1.20+ instance, Scope flags the exact culprit mod and allows you to disable or replace it with one click.
 
 ### How do I find which mod crashed my Minecraft instance?
 Scope Launcher features an automated **Crash Bisect** diagnostic engine. Instead of manually enabling and disabling dozens of mods by hand, open your instance, go to the **Bisect** tab, and start a session. Scope performs a controlled binary search across test launches, isolating the exact culprit mod or conflict within minutes.

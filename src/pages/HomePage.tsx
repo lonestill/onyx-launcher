@@ -14,9 +14,16 @@ import {
   Sparkles,
   Square,
   Wrench,
+  Zap,
 } from "lucide-react";
 import { useI18n } from "../i18n";
-import type { GameInstance, MinecraftServerStatus, PlaySession, RouteId } from "../types";
+import type {
+  CrashAutoFix,
+  GameInstance,
+  MinecraftServerStatus,
+  PlaySession,
+  RouteId,
+} from "../types";
 import { formatPlaytime, isBuiltinPureGame } from "../utils";
 
 interface HomePageProps {
@@ -28,6 +35,7 @@ interface HomePageProps {
   onOpen: (instance: GameInstance) => void;
   onCreate: () => void;
   onConfigure: (instance: GameInstance) => void;
+  onApplyAutoFix?: (instance: GameInstance, fix: CrashAutoFix) => void;
 }
 
 export function HomePage({
@@ -39,6 +47,7 @@ export function HomePage({
   onOpen,
   onCreate,
   onConfigure,
+  onApplyAutoFix,
 }: HomePageProps) {
   const { locale, t } = useI18n();
   const hour = new Date().getHours();
@@ -290,13 +299,24 @@ export function HomePage({
               {failedInstance.lastDiagnosis?.message || t("home.incident.desc")}
             </p>
           </div>
-          <button
-            className="button button--danger-quiet button--small"
-            onClick={() => onOpen(failedInstance)}
-          >
-            <Wrench size={13} />
-            {t("home.incident.action")}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {failedInstance.lastAutoFix && onApplyAutoFix && (
+              <button
+                className="button button--primary button--small button--glow"
+                onClick={() => onApplyAutoFix(failedInstance, failedInstance.lastAutoFix!)}
+              >
+                <Zap size={13} fill="currentColor" />
+                {t("crash.autofix.btn")}
+              </button>
+            )}
+            <button
+              className="button button--danger-quiet button--small"
+              onClick={() => onOpen(failedInstance)}
+            >
+              <Wrench size={13} />
+              {t("home.incident.action")}
+            </button>
+          </div>
         </div>
       )}
 

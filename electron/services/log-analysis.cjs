@@ -240,9 +240,13 @@ async function extractCrashReport({ instanceDirectory, logContent = "", exitCode
   };
 }
 
+const { detectCrashAutoFix, applyCrashAutoFix } = require("./crash-autofix.cjs");
+
 module.exports = {
   RULES,
   analyzeMinecraftLog,
   extractCrashReport,
+  detectCrashAutoFix,
+  applyCrashAutoFix,
 };
 

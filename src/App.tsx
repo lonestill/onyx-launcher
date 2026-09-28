@@ -22,11 +22,13 @@ import { ShareModpackModal } from "./components/ShareModpackModal";
 import { ImportLinkModal } from "./components/ImportLinkModal";
 import { JoinPartyModal } from "./components/JoinPartyModal";
 import { TargetInstanceModal } from "./components/TargetInstanceModal";
+import { AutoFixConfirmModal } from "./components/AutoFixConfirmModal";
 import { TitleBar } from "./components/TitleBar";
 import { ToastStack, type ToastMessage } from "./components/Toast";
 import { HomePage } from "./pages/HomePage";
 import type {
   CatalogProject,
+  CrashAutoFix,
   DownloadProgress,
   DownloadTask,
   GameInstance,
@@ -134,6 +136,11 @@ export default function App() {
   const [importLinkInitialUrl, setImportLinkInitialUrl] = useState<string | null>(null);
   const [joinPartyOpen, setJoinPartyOpen] = useState(false);
   const [joinPartyInitialCode, setJoinPartyInitialCode] = useState<string | null>(null);
+  const [pendingAutoFix, setPendingAutoFix] = useState<{
+    instance: GameInstance;
+    fix: CrashAutoFix;
+  } | null>(null);
+  const [autoFixBusy, setAutoFixBusy] = useState(false);
 
   const pushToast = useCallback(
     (
@@ -1123,6 +1130,36 @@ export default function App() {
     setRoute("settings");
   }
 
+  function requestAutoFix(instance: GameInstance, fix: CrashAutoFix) {
+    setPendingAutoFix({ instance, fix });
+  }
+
+  async function confirmApplyAutoFix(instance: GameInstance, fix: CrashAutoFix) {
+    setAutoFixBusy(true);
+    try {
+      pushToast("info", t("crash.autofix.badge"), t("crash.autofix.applying"));
+      const result = await window.onyx.crash.applyAutoFix(instance.id, fix);
+      if (result.success) {
+        setPendingAutoFix(null);
+        pushToast(
+          "success",
+          t("crash.autofix.applied"),
+          t("crash.autofix.appliedDesc"),
+          6000,
+        );
+        await refreshState();
+      }
+    } catch (error) {
+      pushToast(
+        "warning",
+        t("crash.autofix.failed"),
+        error instanceof Error ? error.message : t("crash.autofix.failed"),
+      );
+    } finally {
+      setAutoFixBusy(false);
+    }
+  }
+
   async function copySupportReport() {
     if (!activeLaunch) return;
     const diagnosis = activeLaunch.analysis?.[0]
@@ -1347,6 +1384,7 @@ export default function App() {
             onOpen={openInstance}
             onCreate={() => setCreateOpen(true)}
             onConfigure={setSettingsInstance}
+            onApplyAutoFix={requestAutoFix}
           />
         );
     }
@@ -1576,6 +1614,19 @@ export default function App() {
         onCopyReport={() => void copySupportReport()}
         onExportSupport={() => void exportSupportBundle()}
         supportExportBusy={supportExportBusy}
+        onApplyAutoFix={(fix) => {
+          if (activeLaunch) {
+            requestAutoFix(activeLaunch.instance, fix);
+          }
+          return Promise.resolve();
+        }}
+      />
+      <AutoFixConfirmModal
+        instance={pendingAutoFix?.instance ?? null}
+        fixAction={pendingAutoFix?.fix ?? null}
+        busy={autoFixBusy}
+        onClose={() => !autoFixBusy && setPendingAutoFix(null)}
+        onConfirm={confirmApplyAutoFix}
       />
       <ToastStack
         toasts={toasts}

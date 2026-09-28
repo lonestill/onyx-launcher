@@ -45,6 +45,8 @@ const {
 const {
   analyzeMinecraftLog,
   extractCrashReport,
+  detectCrashAutoFix,
+  applyCrashAutoFix,
 } = require("./services/log-analysis.cjs");
 const { checkInstanceHealth } = require("./services/preflight.cjs");
 const { getOnyxPicks } = require("./services/picks.cjs");
@@ -1801,6 +1803,74 @@ function registerIpc() {
       });
     },
   );
+  ipcMain.handle("instance:crash-detect-autofix", async (_event, id) => {
+    const instance = findInstance(id);
+    const instanceDirectory = path.join(state.settings.gameDirectory, id);
+    let logContent = "";
+    if (instance.lastLogPath && fs.existsSync(instance.lastLogPath)) {
+      try {
+        logContent = await fsp.readFile(instance.lastLogPath, "utf8");
+      } catch {}
+    } else {
+      const latestLog = path.join(instanceDirectory, "logs", "latest.log");
+      if (fs.existsSync(latestLog)) {
+        try {
+          logContent = await fsp.readFile(latestLog, "utf8");
+        } catch {}
+      }
+    }
+    const crashReport = await extractCrashReport({
+      instanceDirectory,
+      logContent,
+      exitCode: instance.lastExitCode || 1,
+    });
+    const fixAction = await detectCrashAutoFix({
+      instance,
+      logContent,
+      crashReport,
+      instancesRoot: state.settings.gameDirectory,
+    });
+    instance.lastAutoFix = fixAction || null;
+    instanceUpdate(instance, { lastAutoFix: instance.lastAutoFix });
+    await saveState();
+    return fixAction;
+  });
+  ipcMain.handle("instance:crash-apply-autofix", async (_event, id, fixAction) => {
+    const instance = findInstance(id);
+    if (runningGames.has(id)) {
+      throw new Error("Stop the game first");
+    }
+    const result = await applyCrashAutoFix({
+      fixAction,
+      instance,
+      instancesRoot: state.settings.gameDirectory,
+      installModFn: async ({ projectId }) => {
+        const project = await fetchJson(
+          `https://api.modrinth.com/v2/project/${encodeURIComponent(projectId)}`,
+        );
+        const task = {
+          id: crypto.randomUUID(),
+          name: project.title || projectId,
+          status: "installing",
+        };
+        const controller = new AbortController();
+        await installModToInstance(project, instance, task, controller.signal);
+      },
+      repairInstanceFn: async () => {
+        await runInstall(instance);
+      },
+      saveStateFn: async () => {
+        await saveState();
+      },
+    });
+    instanceUpdate(instance, {
+      lastAutoFix: null,
+      lastDiagnosis: null,
+      settings: instance.settings,
+    });
+    await saveState();
+    return result;
+  });
   ipcMain.handle("instance:world-snapshots", (_event, id) => {
     findInstance(id);
     return listWorldSnapshots({
@@ -3197,6 +3267,7 @@ function registerIpc() {
             .catch(() => "");
           const diagnoses = analyzeMinecraftLog(logContent);
           if (code === 0) {
+            instance.lastAutoFix = null;
             await writeModBaseline(instanceDirectory, launchMods).catch(
               () => undefined,
             );
@@ -3244,6 +3315,14 @@ function registerIpc() {
                 suspects: culprit ? [culprit] : [],
               });
             }
+
+            const autoFix = await detectCrashAutoFix({
+              instance,
+              logContent,
+              crashReport,
+              instancesRoot: state.settings.gameDirectory,
+            });
+            instance.lastAutoFix = autoFix || null;
           }
           const minutes = Math.max(
             1,
@@ -3288,6 +3367,7 @@ function registerIpc() {
             playtimeMinutes: instance.playtimeMinutes,
             lastExitCode: code,
             lastDiagnosis: instance.lastDiagnosis,
+            lastAutoFix: instance.lastAutoFix,
             lastPerformance: performance,
           });
           await saveState();

@@ -116,6 +116,7 @@ export interface GameInstance {
     datePublished: string;
   } | null;
   lastDiagnosis?: LogDiagnosis | null;
+  lastAutoFix?: CrashAutoFix | null;
   lastPerformance?: FlightPerformance | null;
   health?: InstanceHealthReport;
 }
@@ -133,6 +134,29 @@ export interface LogDiagnosis {
   title: string;
   message: string;
   suspects?: string[];
+}
+
+export type AutoFixType =
+  | "increase-memory"
+  | "switch-java"
+  | "install-indium"
+  | "disable-culprit-mod"
+  | "reset-jvm-args"
+  | "clean-corrupted-file";
+
+export interface CrashAutoFix {
+  type: AutoFixType;
+  titleKey: string;
+  descKey: string;
+  payload: {
+    currentMemoryGiB?: number;
+    targetMemoryGiB?: number;
+    requiredJavaMajor?: number;
+    projectId?: string;
+    modName?: string;
+    modFileName?: string;
+    fileName?: string;
+  };
 }
 
 export type InstanceHealthStatus =
@@ -1063,6 +1087,13 @@ export interface OnyxBridge {
       bytes: number;
       files: number;
     } | null>;
+  };
+  crash: {
+    detectAutoFix(instanceId: string): Promise<CrashAutoFix | null>;
+    applyAutoFix(
+      instanceId: string,
+      fixAction: CrashAutoFix,
+    ): Promise<{ success: boolean; action: string; message?: string }>;
   };
   migration: {
     detect(): Promise<MigrationDetectionResult>;

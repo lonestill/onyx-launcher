@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -21,11 +22,13 @@ import {
   TriangleAlert,
   Wrench,
   X,
+  Zap,
 } from "lucide-react";
-import { useI18n } from "../i18n";
+import { useI18n, type TranslationKey } from "../i18n";
 import { localizeDiagnosis } from "../diagnostics";
 import { isBuiltinPureGame } from "../utils";
 import type {
+  CrashAutoFix,
   GameInstance,
   InstanceHealthCheck,
   InstanceHealthReport,
@@ -56,6 +59,7 @@ export function LauncherOverlay({
   onCopyReport,
   onExportSupport,
   supportExportBusy,
+  onApplyAutoFix,
 }: {
   launch: ActiveLaunch | null;
   expanded: boolean;
@@ -70,8 +74,10 @@ export function LauncherOverlay({
   onCopyReport: () => void;
   onExportSupport: () => void;
   supportExportBusy: boolean;
+  onApplyAutoFix?: (fix: CrashAutoFix) => Promise<void>;
 }) {
   const { t } = useI18n();
+  const [autoFixBusy, setAutoFixBusy] = useState(false);
   if (!launch) return null;
   const progress =
     launch.progress?.progress ??
@@ -228,6 +234,21 @@ export function LauncherOverlay({
                 </div>
               )}
 
+              {launch.instance.lastAutoFix && (
+                <div className="launch-diagnosis launch-diagnosis--autofix">
+                  <span className="launch-diagnosis__icon-accent">
+                    <Zap size={17} fill="currentColor" />
+                  </span>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <strong>{t(launch.instance.lastAutoFix.titleKey as TranslationKey)}</strong>
+                      <span className="badge badge--accent">{t("crash.autofix.badge")}</span>
+                    </div>
+                    <p>{t(launch.instance.lastAutoFix.descKey as TranslationKey, launch.instance.lastAutoFix.payload)}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="launch-panel__footer">
                 {launch.mode !== "logs" && (
                   <span>
@@ -310,6 +331,27 @@ export function LauncherOverlay({
                       <Copy size={15} />
                       {t("diagnosis.copyReport")}
                     </button>
+                    {launch.instance.lastAutoFix && onApplyAutoFix && (
+                      <button
+                        className="button button--primary button--glow"
+                        disabled={autoFixBusy}
+                        onClick={async () => {
+                          setAutoFixBusy(true);
+                          try {
+                            await onApplyAutoFix(launch.instance.lastAutoFix!);
+                          } finally {
+                            setAutoFixBusy(false);
+                          }
+                        }}
+                      >
+                        {autoFixBusy ? (
+                          <LoaderCircle className="spin" size={15} />
+                        ) : (
+                          <Zap size={15} fill="currentColor" />
+                        )}
+                        {t("crash.autofix.btn")}
+                      </button>
+                    )}
                     {diagnosis && (
                       <button
                         className="button button--secondary"
