@@ -197,3 +197,146 @@ test("applyCrashAutoFix: disables culprit mod by renaming to .disabled", async (
 
   await fsp.rm(tmpRoot, { recursive: true, force: true });
 });
+
+test("detectCrashAutoFix: detects missing dependency (fabric-api) and applies install", async () => {
+  const instance = { id: "inst-dep", loader: "fabric", version: "1.20.1" };
+  const logContent = `
+[02:00:00] [main/FATAL]: Failed to start the minecraft server
+net.fabricmc.loader.impl.FormattedException: Some of your mods are incompatible with the game or each other!
+A potential solution has been determined:
+	 - Install fabric-api, any version.
+Mod 'create' (create) 0.5.1 requires {fabric-api @ >=0.85.0}, which is missing!
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent });
+  assert.ok(fix);
+  assert.equal(fix.type, "install-missing-dependency");
+  assert.equal(fix.payload.depId, "fabric-api");
+  assert.equal(fix.payload.projectId, "fabric-api");
+
+  let installedProject = null;
+  const result = await applyCrashAutoFix({
+    fixAction: fix,
+    instance,
+    installModFn: async ({ projectId }) => {
+      installedProject = projectId;
+    },
+  });
+  assert.equal(result.success, true);
+  assert.equal(installedProject, "fabric-api");
+});
+
+test("detectCrashAutoFix: detects corrupted config file and resets it to .bak", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-cfg-"));
+  const instId = "inst-cfg";
+  const cfgDir = path.join(tmpRoot, instId, "config");
+  await fsp.mkdir(cfgDir, { recursive: true });
+
+  const brokenCfg = path.join(cfgDir, "broken-mod.json");
+  await fsp.writeFile(brokenCfg, "{ invalid json corrupt");
+
+  const instance = { id: instId };
+  const logContent = `
+[02:00:00] [main/ERROR]: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Unterminated object at line 1 column 25 path $
+	at com.google.gson.internal.Streams.parse(Streams.java:61)
+	at net.minecraft.client.main.Main.main(Main.java:120)
+Caused by: java.io.IOException: Error reading config/broken-mod.json
+`;
+  const fix = await detectCrashAutoFix({
+    instance,
+    logContent,
+    instancesRoot: tmpRoot,
+  });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "reset-corrupted-config");
+  assert.equal(fix.payload.configFile, "config/broken-mod.json");
+
+  const result = await applyCrashAutoFix({
+    fixAction: fix,
+    instance,
+    instancesRoot: tmpRoot,
+  });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(brokenCfg), false);
+  assert.equal(fs.existsSync(`${brokenCfg}.bak`), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix: detects OptiFine and Sodium conflict and disables OptiFine", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-conflict-"));
+  const instId = "inst-conflict";
+  const modsDir = path.join(tmpRoot, instId, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+
+  const optifineJar = "OptiFine_1.20.1_HD_U_I6.jar";
+  const sodiumJar = "sodium-fabric-mc1.20.1-0.5.8.jar";
+  await fsp.writeFile(path.join(modsDir, optifineJar), "dummy-optifine");
+  await fsp.writeFile(path.join(modsDir, sodiumJar), "dummy-sodium");
+
+  const instance = { id: instId };
+  const logContent = `
+[02:00:00] [main/ERROR]: Mixin apply failed sodium.mixins.core.json:render.WorldRendererMixin -> net.minecraft.class_761: org.spongepowered.asm.mixin.injection.throwables.InjectionError Critical injection failure
+`;
+  const fix = await detectCrashAutoFix({
+    instance,
+    logContent,
+    instancesRoot: tmpRoot,
+  });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "resolve-mod-conflict");
+  assert.equal(fix.payload.conflictingMod, optifineJar);
+
+  const result = await applyCrashAutoFix({
+    fixAction: fix,
+    instance,
+    instancesRoot: tmpRoot,
+  });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(path.join(modsDir, optifineJar)), false);
+  assert.equal(fs.existsSync(path.join(modsDir, `${optifineJar}.disabled`)), true);
+  assert.equal(fs.existsSync(path.join(modsDir, sodiumJar)), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix: detects duplicate mod files and disables the duplicate", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-dup-"));
+  const instId = "inst-dup";
+  const modsDir = path.join(tmpRoot, instId, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+
+  const originalJar = "jei-1.20.1-15.2.0.27.jar";
+  const duplicateJar = "jei-1.20.1-15.2.0.27 (1).jar";
+  await fsp.writeFile(path.join(modsDir, originalJar), "dummy-jei");
+  await fsp.writeFile(path.join(modsDir, duplicateJar), "dummy-jei-copy");
+
+  const instance = { id: instId };
+  const logContent = `
+[02:00:00] [main/FATAL]: Duplicate mods found: jei
+net.minecraftforge.fml.loading.EarlyLoadingException: Duplicate mods found: jei
+`;
+  const fix = await detectCrashAutoFix({
+    instance,
+    logContent,
+    instancesRoot: tmpRoot,
+  });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "remove-duplicate-mod");
+  assert.equal(fix.payload.disableFile, duplicateJar);
+
+  const result = await applyCrashAutoFix({
+    fixAction: fix,
+    instance,
+    instancesRoot: tmpRoot,
+  });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(path.join(modsDir, duplicateJar)), false);
+  assert.equal(fs.existsSync(path.join(modsDir, `${duplicateJar}.disabled`)), true);
+  assert.equal(fs.existsSync(path.join(modsDir, originalJar)), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+

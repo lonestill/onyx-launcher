@@ -5,7 +5,7 @@ const os = require("node:os");
 const StreamZip = require("node-stream-zip");
 
 /**
- * @typedef {'increase-memory' | 'switch-java' | 'install-indium' | 'disable-culprit-mod' | 'reset-jvm-args' | 'clean-corrupted-file'} AutoFixType
+ * @typedef {'increase-memory' | 'switch-java' | 'install-indium' | 'install-missing-dependency' | 'disable-culprit-mod' | 'remove-duplicate-mod' | 'resolve-mod-conflict' | 'reset-corrupted-config' | 'reset-jvm-args' | 'clean-corrupted-file'} AutoFixType
  *
  * @typedef {Object} CrashAutoFix
  * @property {AutoFixType} type
@@ -13,6 +13,40 @@ const StreamZip = require("node-stream-zip");
  * @property {string} descKey
  * @property {Record<string, any>} payload
  */
+
+const KNOWN_DEP_SLUGS = {
+  "fabric-api": { slug: "fabric-api", name: "Fabric API" },
+  "fabric": { slug: "fabric-api", name: "Fabric API" },
+  "fabric-language-kotlin": { slug: "fabric-language-kotlin", name: "Fabric Language Kotlin" },
+  "cloth-config": { slug: "cloth-config", name: "Cloth Config" },
+  "cloth-config2": { slug: "cloth-config", name: "Cloth Config" },
+  "cloth_config": { slug: "cloth-config", name: "Cloth Config" },
+  "architectury": { slug: "architectury-api", name: "Architectury API" },
+  "architectury-api": { slug: "architectury-api", name: "Architectury API" },
+  "yet-another-config-lib": { slug: "yacl", name: "Yet Another Config Lib (YACL)" },
+  "yet_another_config_lib": { slug: "yacl", name: "Yet Another Config Lib (YACL)" },
+  "yet_another_config_lib_v3": { slug: "yacl", name: "Yet Another Config Lib (YACL)" },
+  "yacl": { slug: "yacl", name: "Yet Another Config Lib (YACL)" },
+  "pehkui": { slug: "pehkui", name: "Pehkui" },
+  "geckolib": { slug: "geckolib", name: "GeckoLib" },
+  "citresewn": { slug: "cit-resewn", name: "CIT Resewn" },
+  "cit-resewn": { slug: "cit-resewn", name: "CIT Resewn" },
+  "indium": { slug: "indium", name: "Indium" },
+  "iris": { slug: "iris", name: "Iris Shaders" },
+  "sodium": { slug: "sodium", name: "Sodium" },
+  "ferritecore": { slug: "ferrite-core", name: "FerriteCore" },
+  "modmenu": { slug: "modmenu", name: "Mod Menu" },
+  "appleskin": { slug: "appleskin", name: "AppleSkin" },
+  "kotlinforforge": { slug: "kotlin-for-forge", name: "Kotlin for Forge" },
+  "balm": { slug: "balm", name: "Balm" },
+  "balm-fabric": { slug: "balm", name: "Balm" },
+  "puzzleslib": { slug: "puzzles-lib", name: "Puzzles Lib" },
+  "collective": { slug: "collective", name: "Collective" },
+  "curios": { slug: "curios", name: "Curios API" },
+  "trinkets": { slug: "trinkets", name: "Trinkets" },
+  "cardinal-components": { slug: "cardinal-components-api", name: "Cardinal Components API" },
+  "cardinal-components-base": { slug: "cardinal-components-api", name: "Cardinal Components API" },
+};
 
 /**
  * Inspects a JAR file's internal manifests (fabric.mod.json, quilt.mod.json, mods.toml, mcmod.info)
@@ -25,6 +59,7 @@ async function inspectJarMetadata(jarPath) {
     const entries = await zip.entries();
     let modId = null;
     let name = null;
+    let version = null;
     let loader = null;
     let mcVersionRange = null;
 
@@ -35,6 +70,7 @@ async function inspectJarMetadata(jarPath) {
         const json = JSON.parse(data.toString("utf8"));
         modId = json.id;
         name = json.name || json.id;
+        version = json.version || null;
         mcVersionRange = json.depends?.minecraft || null;
       } catch {}
     } else if (entries["quilt.mod.json"]) {
@@ -44,6 +80,7 @@ async function inspectJarMetadata(jarPath) {
         const json = JSON.parse(data.toString("utf8"));
         modId = json.quilt_loader?.id;
         name = json.quilt_loader?.metadata?.name || modId;
+        version = json.quilt_loader?.metadata?.version || null;
         const mcDep = json.quilt_loader?.depends?.find(
           (d) => d.id === "minecraft" || (typeof d === "string" && d === "minecraft"),
         );
@@ -58,6 +95,8 @@ async function inspectJarMetadata(jarPath) {
         modId = modIdMatch ? modIdMatch[1] : null;
         const verMatch = tomlText.match(/versionRange\s*=\s*["']([^"']+)["']/);
         mcVersionRange = verMatch ? verMatch[1] : null;
+        const versionMatch = tomlText.match(/version\s*=\s*["']([^"']+)["']/);
+        version = versionMatch ? versionMatch[1] : null;
       } catch {}
     } else if (entries["META-INF/mods.toml"]) {
       loader = "forge";
@@ -68,6 +107,8 @@ async function inspectJarMetadata(jarPath) {
         modId = modIdMatch ? modIdMatch[1] : null;
         const verMatch = tomlText.match(/versionRange\s*=\s*["']([^"']+)["']/);
         mcVersionRange = verMatch ? verMatch[1] : null;
+        const versionMatch = tomlText.match(/version\s*=\s*["']([^"']+)["']/);
+        version = versionMatch ? versionMatch[1] : null;
       } catch {}
     } else if (entries["mcmod.info"]) {
       loader = "forge";
@@ -77,6 +118,7 @@ async function inspectJarMetadata(jarPath) {
         const info = Array.isArray(json) ? json[0] : (json.modList?.[0] || json);
         modId = info.modid;
         name = info.name;
+        version = info.version || null;
         mcVersionRange = info.mcversion;
       } catch {}
     }
@@ -86,6 +128,7 @@ async function inspectJarMetadata(jarPath) {
       jarPath,
       modId,
       name,
+      version,
       loader,
       mcVersionRange,
       corrupted: false,
@@ -297,7 +340,150 @@ async function detectCrashAutoFix({
     };
   }
 
-  // 6. Deep JAR inspection in instance mods folder (unpacking manifests to check version & loader)
+  // 6. Missing Mod Dependency (Fabric API, Kotlin, Cloth Config, Architectury, etc.)
+  const missingDepMatch =
+    combined.match(/(?:Mod\s+'[^']+'\s+)?requires\s*\{([a-z0-9_\-+.]+)(?:\s*@\s*[^}]+)?\},\s*which is missing/i) ||
+    combined.match(/requires\s*\{([a-z0-9_\-+.]+)(?:\s*@\s*[^}]+)?\},\s*which is missing/i) ||
+    combined.match(/Mod\s+'[^']+'\s+requires\s+([a-z0-9_\-+.]+),\s+which is missing/i) ||
+    combined.match(/Unmet dependency:\s*mod\s+'[^']+'\s+requires\s+([a-z0-9_\-+.]+)/i) ||
+    combined.match(/A potential solution has been determined:\s*(?:\n|\r\n)\s*-\s*Install\s+([a-z0-9_\-+.]+)/i) ||
+    combined.match(/Missing or unsupported mandatory dependencies:\s*(?:[\s\S]*?)\s*Mod ID:\s*'([a-z0-9_\-+.]+)'/i);
+
+  if (missingDepMatch) {
+    const rawDepId = (missingDepMatch[1] || missingDepMatch[2] || "").trim().toLowerCase();
+    if (rawDepId && !["minecraft", "java", "forge", "fabricloader", "quilt_loader", "neoforge"].includes(rawDepId)) {
+      const known = KNOWN_DEP_SLUGS[rawDepId];
+      const projectId = known ? known.slug : rawDepId;
+      const depName = known ? known.name : rawDepId;
+
+      return {
+        type: "install-missing-dependency",
+        titleKey: "crash.autofix.installMissingDep.title",
+        descKey: "crash.autofix.installMissingDep.desc",
+        payload: {
+          depId: rawDepId,
+          projectId,
+          depName,
+        },
+      };
+    }
+  }
+
+  // 7. Corrupted Config File (MalformedJsonException / ParsingException / ConfigException)
+  const isConfigCrash =
+    /JsonSyntaxException|MalformedJsonException|ParsingException|ConfigException|Failed to load config|Error parsing config/i.test(
+      combined,
+    );
+
+  if (isConfigCrash && instancesRoot && instance.id) {
+    const instanceDir = path.join(instancesRoot, instance.id);
+    const configPathMatch =
+      combined.match(/config[\\/]([a-zA-Z0-9_\-+./]+\.(?:json5?|toml|ya?ml|cfg|ini))/i) ||
+      combined.match(/['"]([a-zA-Z0-9_\-+.]+\.(?:json5?|toml|ya?ml|cfg|ini))['"]/i);
+
+    if (configPathMatch && configPathMatch[1]) {
+      const relConfig = configPathMatch[1].replace(/^[\\/]+/, "");
+      const candidatePaths = [
+        path.join(instanceDir, "config", relConfig),
+        path.join(instanceDir, relConfig),
+      ];
+
+      for (const cand of candidatePaths) {
+        if (fs.existsSync(cand)) {
+          const relDisplay = path.relative(instanceDir, cand).replace(/\\/g, "/");
+          return {
+            type: "reset-corrupted-config",
+            titleKey: "crash.autofix.resetConfig.title",
+            descKey: "crash.autofix.resetConfig.desc",
+            payload: {
+              configFile: relDisplay,
+              fullPath: cand,
+            },
+          };
+        }
+      }
+    }
+  }
+
+  // 8. Mutually Exclusive Mod Conflicts (OptiFine + Sodium/Iris, Phosphor + Starlight)
+  if (instancesRoot && instance.id) {
+    const modsDir = path.join(instancesRoot, instance.id, "mods");
+    if (fs.existsSync(modsDir)) {
+      try {
+        const files = await fsp.readdir(modsDir);
+        const activeJars = files.filter((f) => f.endsWith(".jar") && !f.endsWith(".disabled"));
+
+        const optifineJar = activeJars.find((f) => /optifine|optifabric/i.test(f));
+        const sodiumJar = activeJars.find((f) => /sodium|iris|rubidium|embeddium/i.test(f));
+
+        if (optifineJar && sodiumJar) {
+          return {
+            type: "resolve-mod-conflict",
+            titleKey: "crash.autofix.resolveConflict.title",
+            descKey: "crash.autofix.resolveConflict.desc",
+            payload: {
+              conflictingMod: optifineJar,
+              incompatibleWith: sodiumJar,
+              conflictReason: "rendering-pipeline",
+            },
+          };
+        }
+
+        const phosphorJar = activeJars.find((f) => /phosphor/i.test(f));
+        const starlightJar = activeJars.find((f) => /starlight/i.test(f));
+        if (phosphorJar && starlightJar) {
+          return {
+            type: "resolve-mod-conflict",
+            titleKey: "crash.autofix.resolveConflict.title",
+            descKey: "crash.autofix.resolveConflict.desc",
+            payload: {
+              conflictingMod: phosphorJar,
+              incompatibleWith: starlightJar,
+              conflictReason: "light-engine",
+            },
+          };
+        }
+      } catch {}
+    }
+  }
+
+  // 9. Duplicate Mods from log
+  const duplicateMatch =
+    combined.match(/DuplicateModsFoundException:.*?\[([^\]]+)\]/i) ||
+    combined.match(/Duplicate mods found:?\s*([a-zA-Z0-9_\-+.]+)/i) ||
+    combined.match(/Duplicate mod ID:?\s*'([a-z0-9_\-+.]+)'/i);
+
+  if (duplicateMatch && instancesRoot && instance.id) {
+    const modsDir = path.join(instancesRoot, instance.id, "mods");
+    if (fs.existsSync(modsDir)) {
+      try {
+        const files = await fsp.readdir(modsDir);
+        const activeJars = files.filter((f) => f.endsWith(".jar") && !f.endsWith(".disabled"));
+        const rawName = duplicateMatch[1].trim();
+        const baseName = rawName.replace(/\.jar$/, "").toLowerCase();
+
+        const matches = activeJars.filter((f) => f.toLowerCase().includes(baseName));
+        if (matches.length >= 2) {
+          const copyFile = matches.find((f) => /\(\d+\)|_copy|-copy/i.test(f));
+          const disableFile = copyFile || matches[1];
+          const keepFile = matches.find((f) => f !== disableFile) || matches[0];
+
+          return {
+            type: "remove-duplicate-mod",
+            titleKey: "crash.autofix.removeDuplicateMod.title",
+            descKey: "crash.autofix.removeDuplicateMod.desc",
+            payload: {
+              modId: rawName,
+              keepFile,
+              disableFile,
+            },
+          };
+        }
+      } catch {}
+    }
+  }
+
+  // 10. Deep JAR inspection in instance mods folder (unpacking manifests to check version & loader & duplicates)
   if (instancesRoot && instance.id) {
     const modsDir = path.join(instancesRoot, instance.id, "mods");
     if (fs.existsSync(modsDir)) {
@@ -306,6 +492,8 @@ async function detectCrashAutoFix({
         const jarFiles = files.filter(
           (f) => f.endsWith(".jar") && !f.endsWith(".disabled")
         );
+
+        const seenModIds = new Map();
 
         for (const file of jarFiles) {
           const fullPath = path.join(modsDir, file);
@@ -320,6 +508,28 @@ async function detectCrashAutoFix({
                 fileName: file,
               },
             };
+          }
+
+          // Check duplicate mod IDs inside mods folder
+          if (meta.modId && meta.modId !== "minecraft") {
+            if (seenModIds.has(meta.modId)) {
+              const prevFile = seenModIds.get(meta.modId);
+              const isCopy = /\(\d+\)|_copy|-copy/i.test(file);
+              const disableFile = isCopy ? file : prevFile;
+              const keepFile = disableFile === file ? prevFile : file;
+
+              return {
+                type: "remove-duplicate-mod",
+                titleKey: "crash.autofix.removeDuplicateMod.title",
+                descKey: "crash.autofix.removeDuplicateMod.desc",
+                payload: {
+                  modId: meta.modId,
+                  keepFile,
+                  disableFile,
+                },
+              };
+            }
+            seenModIds.set(meta.modId, file);
           }
 
           const compat = checkModCompatibility(meta, instance);
@@ -356,24 +566,7 @@ async function detectCrashAutoFix({
     }
   }
 
-  // 7. Culprit Mod / Duplicate Mod from logs / crash report
-  const duplicateMatch = combined.match(/DuplicateModsFoundException:.*?\[([^\]]+)\]/i) ||
-    combined.match(/Duplicate mods found:?\s*([a-zA-Z0-9_\-+.]+)/i);
-
-  if (duplicateMatch && duplicateMatch[1]) {
-    const rawName = duplicateMatch[1].trim();
-    const finalName = rawName.endsWith(".jar") ? rawName : `${rawName}.jar`;
-    return {
-      type: "disable-culprit-mod",
-      titleKey: "crash.autofix.disableMod.title",
-      descKey: "crash.autofix.disableMod.desc",
-      payload: {
-        mod: finalName,
-        modFileName: finalName,
-      },
-    };
-  }
-
+  // 11. Culprit Mod from crash report
   if (crashReport && crashReport.suspectedCulprit) {
     const culprit = crashReport.suspectedCulprit;
     if (!culprit.includes("onyx-fps-agent")) {
@@ -518,6 +711,86 @@ async function applyCrashAutoFix({
         success: true,
         action: "install-indium",
         message: "Installed Indium for Sodium compatibility",
+      };
+    }
+
+    case "install-missing-dependency": {
+      if (installModFn) {
+        await installModFn({
+          instance,
+          projectId: fixAction.payload?.projectId || fixAction.payload?.depId,
+        });
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "install-missing-dependency",
+        message: `Installed missing dependency ${fixAction.payload?.depName || fixAction.payload?.depId}`,
+      };
+    }
+
+    case "remove-duplicate-mod": {
+      const disableFile = fixAction.payload?.disableFile;
+      if (!disableFile) throw new Error("Duplicate mod file name missing");
+
+      const modsDir = path.join(instancesRoot, instance.id, "mods");
+      const src = path.join(modsDir, disableFile);
+      const dst = path.join(modsDir, `${disableFile}.disabled`);
+      if (fs.existsSync(src)) {
+        await fsp.rename(src, dst);
+      }
+
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "remove-duplicate-mod",
+        message: `Disabled duplicate mod ${disableFile}`,
+      };
+    }
+
+    case "resolve-mod-conflict": {
+      const conflictingMod = fixAction.payload?.conflictingMod;
+      if (!conflictingMod) throw new Error("Conflicting mod file name missing");
+
+      const modsDir = path.join(instancesRoot, instance.id, "mods");
+      const src = path.join(modsDir, conflictingMod);
+      const dst = path.join(modsDir, `${conflictingMod}.disabled`);
+      if (fs.existsSync(src)) {
+        await fsp.rename(src, dst);
+      }
+
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "resolve-mod-conflict",
+        message: `Disabled conflicting mod ${conflictingMod}`,
+      };
+    }
+
+    case "reset-corrupted-config": {
+      const fullPath = fixAction.payload?.fullPath;
+      if (fullPath && fs.existsSync(fullPath)) {
+        const bakPath = `${fullPath}.bak`;
+        try {
+          await fsp.rename(fullPath, bakPath);
+        } catch {
+          await fsp.unlink(fullPath);
+        }
+      }
+
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "reset-corrupted-config",
+        message: `Reset damaged config file ${fixAction.payload?.configFile || ""}`,
       };
     }
 

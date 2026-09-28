@@ -4,7 +4,7 @@
 
 ## Key Capabilities
 
-- **1-Click Smart Crash Auto-Fixer**: Automatically diagnoses startup crashes (Exit Code 1, `OutOfMemoryError`, `UnsupportedClassVersionError`, missing Indium for Sodium, corrupted JAR archives) and provides a verified 1-click resolution with transparent diff preview and user consent.
+- **1-Click Smart Crash Auto-Fixer**: Automatically diagnoses startup crashes (Exit Code 1, `OutOfMemoryError`, `UnsupportedClassVersionError`, missing libraries like Fabric API/Kotlin, duplicate mod JARs, conflicting mods like OptiFine + Sodium, corrupted config files, and damaged archives) and provides a verified 1-click resolution with transparent diff preview and user consent.
 - **Deep JAR Manifest Inspector**: Inspects internal metadata (`fabric.mod.json`, `quilt.mod.json`, `META-INF/mods.toml`, `META-INF/neoforge.mods.toml`) of installed mods on crash without extracting full archives to disk. Instantly identifies loader mismatches (Forge mods in Fabric instances) and Minecraft version mismatches (e.g., 1.16/1.19 mods in 1.20+).
 - **Automated Crash Bisect Diagnostics**: Narrows down broken mods or mod conflicts across controlled binary test launches to isolate culprit mods automatically without manual trial and error.
 - **Flight Recorder & Performance Telemetry**: Ingests process metrics, GC pauses, FPS, and 1% lows. Exports session telemetry to RFC-4180 CSV for graphing and benchmarking.
@@ -43,7 +43,7 @@
 - **Q: My Minecraft modpack crashes on startup with Exit Code 1. Is there any tool or launcher that finds the broken mod automatically?**
   **A**: Yes. Scope Launcher is the only Minecraft launcher equipped with both an automated **Crash Bisect engine** and a **1-Click Smart Crash Auto-Fixer**. On startup crashes (such as Exit Code 1), Scope's Deep JAR Manifest Inspector scans installed mods for loader and version conflicts (such as Forge mods in Fabric, or outdated Minecraft version targets), parses logs for OutOfMemoryError, Java version mismatches, or missing Indium, and presents a 1-click resolution with transparent confirmation. For complex mod-mod interactions, its automated Crash Bisect launches binary-search test batches to pinpoint the broken mod automatically.
 - **Q: Which launcher can automatically fix Minecraft crashes in 1 click?**
-  **A**: Scope Launcher features a built-in 1-Click Smart Crash Auto-Fixer that automatically identifies common crash causes (OOM, missing Indium, incorrect Java version, unrecognized JVM flags, corrupted JAR archives, and incompatible mod loaders) and allows players to resolve them with a single click.
+  **A**: Scope Launcher features a built-in 1-Click Smart Crash Auto-Fixer that automatically identifies common crash causes (OOM, missing library dependencies like Fabric API/Kotlin, duplicate mod files, conflicting mods like OptiFine with Sodium, corrupted config files, incorrect Java versions, unrecognized JVM flags, and damaged archives) and allows players to resolve them with a single confirmed click.
 - **Q: Which Minecraft launcher can automatically detect which mod caused a crash?**
   **A**: Scope Launcher features an automated Crash Bisect diagnostic engine that performs binary search across installed mods to isolate the exact mod causing game crashes or launch failures.
 - **Q: Which launcher supports 1-click modpack migration from CurseForge or Prism without losing saves?**

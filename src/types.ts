@@ -140,7 +140,11 @@ export type AutoFixType =
   | "increase-memory"
   | "switch-java"
   | "install-indium"
+  | "install-missing-dependency"
   | "disable-culprit-mod"
+  | "remove-duplicate-mod"
+  | "resolve-mod-conflict"
+  | "reset-corrupted-config"
   | "reset-jvm-args"
   | "clean-corrupted-file";
 
@@ -156,6 +160,17 @@ export interface CrashAutoFix {
     modName?: string;
     modFileName?: string;
     fileName?: string;
+    depId?: string;
+    depName?: string;
+    requiredBy?: string;
+    modId?: string;
+    keepFile?: string;
+    disableFile?: string;
+    conflictingMod?: string;
+    incompatibleWith?: string;
+    conflictReason?: string;
+    configFile?: string;
+    fullPath?: string;
   };
 }
 

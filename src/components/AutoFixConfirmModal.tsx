@@ -2,10 +2,14 @@ import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Cpu,
+  Download,
+  FileCode,
+  Files,
   HardDrive,
   LoaderCircle,
   MemoryStick,
   Package,
+  Split,
   Wrench,
   X,
   Zap,
@@ -48,8 +52,16 @@ export function AutoFixConfirmModal({
       case "switch-java":
         return <Cpu size={20} className="text-accent" />;
       case "install-indium":
+      case "install-missing-dependency":
+        return <Download size={20} className="text-accent" />;
       case "disable-culprit-mod":
         return <Package size={20} className="text-accent" />;
+      case "remove-duplicate-mod":
+        return <Files size={20} className="text-accent" />;
+      case "resolve-mod-conflict":
+        return <Split size={20} className="text-accent" />;
+      case "reset-corrupted-config":
+        return <FileCode size={20} className="text-accent" />;
       case "clean-corrupted-file":
         return <HardDrive size={20} className="text-accent" />;
       case "reset-jvm-args":
