@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
+  AlertCircle,
   Check,
+  CheckCircle2,
+  Download,
   Footprints,
   Hand,
   ImagePlus,
@@ -15,7 +18,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useI18n } from '../i18n';
-import type { Profile } from '../types';
+import type { GameInstance, Profile } from '../types';
 import {
   SkinViewer3D,
   type SkinAnimationName,
@@ -30,6 +33,7 @@ const DEFAULT_ALEX_URL =
 
 interface SkinsPageProps {
   profile: Profile;
+  instances?: GameInstance[];
   onAccount: () => void;
   onNotify: (
     tone: 'success' | 'warning' | 'info',
@@ -38,7 +42,12 @@ interface SkinsPageProps {
   ) => void;
 }
 
-export function SkinsPage({ profile, onAccount, onNotify }: SkinsPageProps) {
+export function SkinsPage({
+  profile,
+  instances: initialInstances,
+  onAccount,
+  onNotify,
+}: SkinsPageProps) {
   const { t } = useI18n();
   const [accounts, setAccounts] = useState<Profile[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
@@ -62,6 +71,74 @@ export function SkinsPage({ profile, onAccount, onNotify }: SkinsPageProps) {
   const [profileBusy, setProfileBusy] = useState(false);
   const refreshedAccountIds = useRef(new Set<string>());
   const capeFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [instances, setInstances] = useState<GameInstance[]>(initialInstances || []);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
+  const [cslStatus, setCslStatus] = useState<{
+    installed: boolean;
+    supported: boolean;
+    loader: string;
+    version: string;
+    jarName: string | null;
+  } | null>(null);
+  const [cslLoading, setCslLoading] = useState(false);
+  const [cslInstalling, setCslInstalling] = useState(false);
+
+  useEffect(() => {
+    if (initialInstances && initialInstances.length > 0) {
+      setInstances(initialInstances);
+      setSelectedInstanceId((prev) => prev || initialInstances[0].id);
+    } else {
+      window.onyx?.state?.get().then((st) => {
+        if (st?.instances && st.instances.length > 0) {
+          setInstances(st.instances);
+          setSelectedInstanceId((prev) => prev || st.instances[0].id);
+        }
+      }).catch(() => {});
+    }
+  }, [initialInstances]);
+
+  useEffect(() => {
+    if (!selectedInstanceId) return;
+    let active = true;
+    setCslLoading(true);
+    window.onyx?.state?.getSkinLoaderStatus(selectedInstanceId)
+      .then((status) => {
+        if (active) setCslStatus(status);
+      })
+      .catch((err: unknown) => {
+        console.error('Failed to get skin loader status', err);
+      })
+      .finally(() => {
+        if (active) setCslLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedInstanceId]);
+
+  const handleInstallCsl = async () => {
+    if (!selectedInstanceId || cslInstalling) return;
+    setCslInstalling(true);
+    try {
+      const res = await window.onyx.state.installSkinLoader(selectedInstanceId);
+      if (res.success) {
+        const inst = instances.find((i) => i.id === selectedInstanceId);
+        onNotify(
+          'success',
+          t('settings.skins.csl.installedSuccess'),
+          t('settings.skins.csl.installedSuccessDesc', { name: inst?.name || selectedInstanceId }),
+        );
+        const status = await window.onyx.state.getSkinLoaderStatus(selectedInstanceId);
+        setCslStatus(status);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      onNotify('warning', 'CustomSkinLoader', msg);
+    } finally {
+      setCslInstalling(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -96,6 +173,7 @@ export function SkinsPage({ profile, onAccount, onNotify }: SkinsPageProps) {
   const selectedAccount = accounts.find(
     (account) => account.uuid === selectedAccountId,
   );
+  const isOfflineAccount = selectedAccount ? selectedAccount.kind !== 'microsoft' : false;
   const selectedSkin =
     selectedAccount?.skins?.find((skin) => skin.state === 'ACTIVE') ||
     selectedAccount?.skins?.[0];
@@ -589,6 +667,106 @@ export function SkinsPage({ profile, onAccount, onNotify }: SkinsPageProps) {
           <button className='button button--primary' type='button' onClick={onAccount}>
             {t('settings.skins.add')}
           </button>
+        </div>
+      )}
+
+      {/* CustomSkinLoader Info & 1-Click Install Card (Offline accounts only) */}
+      {isOfflineAccount && (
+        <div className='skin-csl-card'>
+          <div className='skin-csl-card__header'>
+            <div className='skin-csl-card__icon'>
+              <Sparkles size={18} />
+            </div>
+            <div className='skin-csl-card__titles'>
+              <h4>{t('settings.skins.csl.title')}</h4>
+              <p>{t('settings.skins.csl.howItWorksDesc')}</p>
+            </div>
+          </div>
+
+          <div className='skin-csl-card__grid'>
+            <div className='skin-csl-card__info-box'>
+              <div className='skin-csl-card__info-title'>
+                <CheckCircle2 size={15} />
+                <span>{t('settings.skins.csl.supported')}</span>
+              </div>
+              <p>{t('settings.skins.csl.supportedDesc')}</p>
+            </div>
+
+            <div className='skin-csl-card__info-box skin-csl-card__info-box--warning'>
+              <div className='skin-csl-card__info-title'>
+                <AlertCircle size={15} />
+                <span>{t('settings.skins.csl.vanillaNote')}</span>
+              </div>
+              <p>{t('settings.skins.csl.vanillaNoteDesc')}</p>
+            </div>
+          </div>
+
+          {instances.length > 0 && (
+            <div className='skin-csl-card__checker'>
+              <div className='skin-csl-card__checker-row'>
+                <div className='skin-csl-card__selector-wrap'>
+                  <label htmlFor='csl-instance-select'>{t('settings.skins.csl.selectInstance')}</label>
+                  <select
+                    id='csl-instance-select'
+                    className='skin-csl-card__select'
+                    value={selectedInstanceId}
+                    onChange={(e) => setSelectedInstanceId(e.target.value)}
+                  >
+                    {instances.map((inst) => (
+                      <option key={inst.id} value={inst.id}>
+                        {inst.name} ({inst.loader} {inst.version})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className='skin-csl-card__status-wrap'>
+                  {cslLoading ? (
+                    <span className='csl-badge csl-badge--loading'>
+                      <LoaderCircle className='spin' size={14} />
+                      <span>{t('settings.skins.csl.checking')}</span>
+                    </span>
+                  ) : cslStatus?.installed ? (
+                    <span className='csl-badge csl-badge--success'>
+                      <Check size={14} />
+                      <span>{t('settings.skins.csl.statusInstalled')}</span>
+                    </span>
+                  ) : cslStatus && !cslStatus.supported ? (
+                    <span className='csl-badge csl-badge--warning'>
+                      <AlertCircle size={14} />
+                      <span>{t('settings.skins.csl.statusVanilla')}</span>
+                    </span>
+                  ) : (
+                    <span className='csl-badge csl-badge--danger'>
+                      <AlertCircle size={14} />
+                      <span>{t('settings.skins.csl.statusNotInstalled')}</span>
+                    </span>
+                  )}
+
+                  {cslStatus && cslStatus.supported && !cslStatus.installed && (
+                    <button
+                      type='button'
+                      className='button button--primary button--small'
+                      onClick={() => void handleInstallCsl()}
+                      disabled={cslInstalling}
+                    >
+                      {cslInstalling ? (
+                        <>
+                          <LoaderCircle className='spin' size={14} />
+                          <span>{t('settings.skins.csl.installing')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download size={14} />
+                          <span>{t('settings.skins.csl.installBtn')}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </motion.div>

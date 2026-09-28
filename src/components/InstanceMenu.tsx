@@ -6,8 +6,10 @@ import {
   FolderOpen,
   Package,
   Play,
+  Plus,
   ScrollText,
   Settings2,
+  Share2,
   Trash2,
   Wrench,
   X,
@@ -18,7 +20,10 @@ import type { GameInstance } from "../types";
 interface InstanceMenuProps {
   instance: GameInstance | null;
   onClose: () => void;
-  onPlay: (instance: GameInstance) => void;
+  onPlay: (
+    instance: GameInstance,
+    options?: { multiClient?: boolean; username?: string },
+  ) => void;
   onDelete: (instance: GameInstance) => void;
   onDuplicate: (instance: GameInstance) => void;
   onOpenFolder: (instance: GameInstance) => void;
@@ -26,6 +31,7 @@ interface InstanceMenuProps {
   onLogs: (instance: GameInstance) => void;
   onRepair: (instance: GameInstance) => void;
   onBackup: (instance: GameInstance) => void;
+  onShare?: (instance: GameInstance) => void;
   onSettings: (instance: GameInstance) => void;
   onUpdatePack: (instance: GameInstance) => void;
 }
@@ -41,10 +47,11 @@ export function InstanceMenu({
   onLogs,
   onRepair,
   onBackup,
+  onShare,
   onSettings,
   onUpdatePack,
 }: InstanceMenuProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <AnimatePresence>
       {instance && (
@@ -105,6 +112,26 @@ export function InstanceMenu({
                   <small>{t("menu.launchHint")}</small>
                 </div>
               </button>
+              {instance.status === "running" && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onPlay(instance, { multiClient: true });
+                  }}
+                >
+                  <span>
+                    <Plus size={17} />
+                  </span>
+                  <div>
+                    <strong>{t("instancePage.actions.launchAnother")}</strong>
+                    <small>
+                      {locale === "ru"
+                        ? `Запустить еще один процесс (${instance.runningCount || 1} сейчас)`
+                        : `Run another process (${instance.runningCount || 1} active)`}
+                    </small>
+                  </div>
+                </button>
+              )}
               <button onClick={() => onLogs(instance)}>
                 <span>
                   <ScrollText size={17} />
@@ -150,6 +177,22 @@ export function InstanceMenu({
                   <small>{t("menu.backupHint")}</small>
                 </div>
               </button>
+              {onShare && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onShare(instance);
+                  }}
+                >
+                  <span>
+                    <Share2 size={17} />
+                  </span>
+                  <div>
+                    <strong>{t("menu.share")}</strong>
+                    <small>{t("menu.shareHint")}</small>
+                  </div>
+                </button>
+              )}
               <button onClick={() => onOpenFolder(instance)}>
                 <span>
                   <FolderOpen size={17} />

@@ -13,7 +13,9 @@ import {
   Rocket,
   Search,
   Share2,
+  FileCode,
   SlidersHorizontal,
+  Users2,
 } from "lucide-react";
 import { InstanceCard } from "../components/InstanceCard";
 import { useSearchFocus } from "../hooks/useSearchFocus";
@@ -24,7 +26,10 @@ interface LibraryPageProps {
   instances: GameInstance[];
   onCreate: () => void;
   onMigrate: () => void;
-  onPlay: (instance: GameInstance) => void;
+  onPlay: (
+    instance: GameInstance,
+    options?: { multiClient?: boolean; username?: string },
+  ) => void;
   onFavorite: (instance: GameInstance) => void;
   onMenu: (instance: GameInstance) => void;
   onCheck: (instance: GameInstance) => void;
@@ -32,6 +37,8 @@ interface LibraryPageProps {
   onImport: () => void;
   onImportBackup: () => void;
   onImportSync: () => void;
+  onImportLink?: () => void;
+  onJoinParty?: () => void;
 }
 
 type Filter = "all" | "fabric" | "forge" | "neoforge" | "quilt" | "vanilla" | "favorite";
@@ -48,6 +55,8 @@ export function LibraryPage({
   onImport,
   onImportBackup,
   onImportSync,
+  onImportLink,
+  onJoinParty,
 }: LibraryPageProps) {
   const { locale, t } = useI18n();
   const [query, setQuery] = useState("");
@@ -170,18 +179,42 @@ export function LibraryPage({
                   className="dropdown-item"
                   onClick={() => {
                     setImportMenuOpen(false);
-                    onImportSync();
+                    onImportLink?.();
                   }}
                 >
                   <Share2 size={15} />
                   <div>
                     <strong>{t("library.syncImport")}</strong>
-                    <small>Friend code</small>
+                    <small>Onyx Share link</small>
+                  </div>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setImportMenuOpen(false);
+                    onImportSync();
+                  }}
+                >
+                  <FileCode size={15} />
+                  <div>
+                    <strong>{t("library.syncImportFile")}</strong>
+                    <small>.onyxprofile</small>
                   </div>
                 </button>
               </div>
             )}
           </div>
+
+          {onJoinParty && (
+            <button
+              className="button button--secondary"
+              onClick={onJoinParty}
+              title={locale === "ru" ? "Подключиться к комнате друга (P2P)" : "Join a friend's room (P2P)"}
+            >
+              <Users2 size={16} />
+              <span>{locale === "ru" ? "Войти в комнату" : "Join Room"}</span>
+            </button>
+          )}
 
           <button className="button button--primary" onClick={onCreate}>
             <Plus size={16} />

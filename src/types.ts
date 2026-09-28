@@ -77,6 +77,7 @@ export interface GameInstance {
   iconUrl?: string | null;
   favorite: boolean;
   status: InstanceStatus;
+  runningCount?: number;
   lastPlayed: string;
   playtimeMinutes: number;
   modCount: number;
@@ -883,11 +884,47 @@ export interface OnyxBridge {
     exportSyncProfile(
       id: string,
     ): Promise<{ path: string; total: number; recognized: number } | null>;
+    shareSyncProfile(
+      id: string,
+    ): Promise<{
+      success: boolean;
+      id: string;
+      url: string;
+      deepLink: string;
+      total: number;
+      recognized: number;
+    }>;
+    previewSyncProfile(urlOrId: string): Promise<{
+      id: string;
+      name: string;
+      version: string;
+      loader: string;
+      modCount: number;
+      author?: string | null;
+      mods: Array<{ name: string; enabled: boolean; versionId?: string | null }>;
+    }>;
+    importSyncProfileUrl(urlOrId: string): Promise<{
+      instance: GameInstance;
+      installed: number;
+      skipped: number;
+    }>;
+    getPendingDeepLink(): Promise<string | null>;
     importSyncProfile(): Promise<{
       instance: GameInstance;
       installed: number;
       skipped: number;
     } | null>;
+    getSkinLoaderStatus(id: string): Promise<{
+      installed: boolean;
+      supported: boolean;
+      loader: string;
+      version: string;
+      jarName: string | null;
+    }>;
+    installSkinLoader(id: string): Promise<{
+      success: boolean;
+      fileName: string;
+    }>;
   };
   system: {
     chooseDirectory(): Promise<string | null>;
@@ -1011,8 +1048,11 @@ export interface OnyxBridge {
   };
   launcher: {
     preflight(instanceId: string): Promise<InstanceHealthReport>;
-    play(instanceId: string): Promise<PlayResult>;
-    stop(instanceId: string): Promise<boolean>;
+    play(
+      instanceId: string,
+      options?: { username?: string; multiClient?: boolean },
+    ): Promise<PlayResult>;
+    stop(instanceId: string, sessionId?: string): Promise<boolean>;
     getLog(instanceId: string): Promise<{
       path: string | null;
       content: string;
@@ -1103,4 +1143,96 @@ export interface OnyxBridge {
   onMigrationProgress(
     callback: (progress: MigrationProgress) => void,
   ): () => void;
+  onDeepLinkPack(
+    callback: (data: { url: string; packId: string }) => void,
+  ): () => void;
+  onDeepLinkParty(
+    callback: (data: { code: string; url: string }) => void,
+  ): () => void;
+  party: {
+    create(opts?: { displayName?: string; instanceId?: string }): Promise<{
+      code: string;
+      deepLink: string;
+      webLink: string;
+      expiresAt: string;
+      peerId: string;
+    }>;
+    join(opts: { code: string; displayName?: string; instanceId?: string }): Promise<PartyRoomState>;
+    status(): Promise<{
+      inRoom: boolean;
+      isHost: boolean;
+      peerId: string;
+      instanceId?: string | null;
+      guestProxyPort?: number | null;
+      room: PartyRoomState | null;
+    }>;
+    updateManifest(opts: { instanceId: string }): Promise<PartyManifest>;
+    diffManifest(opts: { instanceId: string }): Promise<PartyDiffResult>;
+    setReady(opts?: { ready?: boolean }): Promise<{ success: boolean }>;
+    close(): Promise<{ success: boolean }>;
+    onRoomUpdate(callback: (state: PartyRoomState | null) => void): () => void;
+    onSignal(callback: (signal: PartySignal) => void): () => void;
+    onError(callback: (message: string) => void): () => void;
+    onLanDetected(callback: (info: { lanPort: number; relayPort: number; hostIp: string; isE4mc?: boolean }) => void): () => void;
+  };
 }
+
+export interface PartyPeer {
+  peerId: string;
+  displayName: string | null;
+  isHost: boolean;
+  joinedAt: string;
+  ready: boolean;
+}
+
+export interface PartyRoomState {
+  success: boolean;
+  code: string;
+  hostPeerId: string;
+  status: 'waiting' | 'hosting' | 'closed';
+  peers: PartyPeer[];
+  instanceManifest: PartyManifest | null;
+  tunnelHost?: string | null;
+  tunnelPort?: number | null;
+  expiresAt: string;
+  updatedAt: string;
+}
+
+export interface PartyManifest {
+  schema: number;
+  loader: string;
+  loaderVersion: string | null;
+  minecraftVersion: string;
+  mods: PartyModEntry[];
+  generatedAt: string;
+  _tunnel?: { host: string; port: number; setAt: string };
+}
+
+export interface PartyModEntry {
+  fileName: string;
+  sha1: string | null;
+  modrinthId: string | null;
+  versionId: string | null;
+  enabled: boolean;
+  clientOnly?: boolean;
+}
+
+export interface PartyDiffResult {
+  identical: boolean;
+  compatible: boolean;
+  criticalMissing: PartyModEntry[];
+  criticalOutdated: Array<{ local: PartyModEntry; remote: PartyModEntry; clientOnly?: boolean }>;
+  missing: PartyModEntry[];
+  outdated: Array<{ local: PartyModEntry; remote: PartyModEntry; clientOnly?: boolean }>;
+  extra: PartyModEntry[];
+  loaderMismatch: boolean;
+  hostManifest: PartyManifest | null;
+}
+
+export interface PartySignal {
+  fromPeerId: string;
+  type: 'offer' | 'answer' | 'candidate' | 'tunnel-info' | 'heartbeat';
+  payload: unknown;
+  createdAt: string;
+}
+

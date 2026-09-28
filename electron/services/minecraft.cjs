@@ -554,7 +554,26 @@ class MinecraftService {
   async installFabric(profile, onProgress, signal) {
     signal?.throwIfAborted();
     let loaderVersion = profile.loaderVersion;
-    if (!loaderVersion) {
+    if (loaderVersion) {
+      const match = String(loaderVersion).trim().match(/^(?:fabric-|quilt-)?(?:loader-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:\+[0-9A-Za-z._-]+)?)(?:-[0-9.]+)?$/i);
+      if (match) {
+        loaderVersion = match[1];
+      }
+    }
+    let version = null;
+    if (loaderVersion) {
+      try {
+        version = await fetchJson(
+          `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(
+            profile.minecraftVersion,
+          )}/${encodeURIComponent(loaderVersion)}/profile/json`,
+          { signal },
+        );
+      } catch {
+        version = null;
+      }
+    }
+    if (!version) {
       const loaders = await fetchJson(
         `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(
           profile.minecraftVersion,
@@ -564,14 +583,14 @@ class MinecraftService {
       loaderVersion =
         loaders.find((entry) => entry.loader?.stable)?.loader?.version ||
         loaders[0]?.loader?.version;
+      if (!loaderVersion) throw new Error("Fabric Loader was not found for this version");
+      version = await fetchJson(
+        `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(
+          profile.minecraftVersion,
+        )}/${encodeURIComponent(loaderVersion)}/profile/json`,
+        { signal },
+      );
     }
-    if (!loaderVersion) throw new Error("Fabric Loader was not found for this version");
-    const version = await fetchJson(
-      `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(
-        profile.minecraftVersion,
-      )}/${encodeURIComponent(loaderVersion)}/profile/json`,
-      { signal },
-    );
     await this.saveCustomVersion(version);
     await this.installProfileLibraries(version, onProgress, signal);
     return version.id;
@@ -580,7 +599,26 @@ class MinecraftService {
   async installQuilt(profile, onProgress, signal) {
     signal?.throwIfAborted();
     let loaderVersion = profile.loaderVersion;
-    if (!loaderVersion) {
+    if (loaderVersion) {
+      const match = String(loaderVersion).trim().match(/^(?:fabric-|quilt-)?(?:loader-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:\+[0-9A-Za-z._-]+)?)(?:-[0-9.]+)?$/i);
+      if (match) {
+        loaderVersion = match[1];
+      }
+    }
+    let version = null;
+    if (loaderVersion) {
+      try {
+        version = await fetchJson(
+          `https://meta.quiltmc.org/v3/versions/loader/${encodeURIComponent(
+            profile.minecraftVersion,
+          )}/${encodeURIComponent(loaderVersion)}/profile/json`,
+          { signal },
+        );
+      } catch {
+        version = null;
+      }
+    }
+    if (!version) {
       const loaders = await fetchJson(
         `https://meta.quiltmc.org/v3/versions/loader/${encodeURIComponent(
           profile.minecraftVersion,
@@ -589,17 +627,17 @@ class MinecraftService {
       );
       loaderVersion = loaders
         .map((entry) => entry.loader?.version)
-        .filter((version) => version && !version.includes("-"))
+        .filter((v) => v && !v.includes("-"))
         .sort(compareSemanticVersions)
         .at(-1);
+      if (!loaderVersion) throw new Error("Quilt Loader was not found for this version");
+      version = await fetchJson(
+        `https://meta.quiltmc.org/v3/versions/loader/${encodeURIComponent(
+          profile.minecraftVersion,
+        )}/${encodeURIComponent(loaderVersion)}/profile/json`,
+        { signal },
+      );
     }
-    if (!loaderVersion) throw new Error("Quilt Loader was not found for this version");
-    const version = await fetchJson(
-      `https://meta.quiltmc.org/v3/versions/loader/${encodeURIComponent(
-        profile.minecraftVersion,
-      )}/${encodeURIComponent(loaderVersion)}/profile/json`,
-      { signal },
-    );
     await this.saveCustomVersion(version);
     await this.installProfileLibraries(version, onProgress, signal);
     return version.id;
@@ -835,6 +873,11 @@ class MinecraftService {
 
   loaderVersionFromId(loader, versionId) {
     if (!loader || loader === "vanilla") return null;
+    const lower = String(loader).toLowerCase();
+    if (lower === "fabric" || lower === "quilt") {
+      const match = String(versionId).match(/(?:fabric|quilt)-loader-([0-9A-Za-z.+_-]+?)(?:-[0-9.]+)?$/i);
+      if (match) return match[1];
+    }
     const marker = `${loader}-`;
     const index = versionId.toLowerCase().lastIndexOf(marker);
     return index >= 0 ? versionId.slice(index + marker.length) : null;
@@ -878,6 +921,7 @@ class MinecraftService {
     demo,
     launchWrapper,
     extraJvmArguments = [],
+    logFileName = "onyx-latest.log",
     onLog,
     onSpawn,
     onExit,
@@ -921,6 +965,17 @@ class MinecraftService {
     if (!seenPaths.has(clientJar)) {
       seenPaths.add(clientJar);
       libraries.push(clientJar);
+    }
+    if (Array.isArray(extraJvmArguments)) {
+      for (const arg of extraJvmArguments) {
+        if (typeof arg === "string" && arg.startsWith("-javaagent:")) {
+          const jarPart = arg.slice("-javaagent:".length).split("=")[0];
+          if (jarPart && !seenPaths.has(jarPart) && fs.existsSync(jarPart)) {
+            seenPaths.add(jarPart);
+            libraries.push(jarPart);
+          }
+        }
+      }
     }
     const classpath = libraries.join(path.delimiter);
 
@@ -1043,7 +1098,7 @@ class MinecraftService {
     }
 
     await fsp.mkdir(path.join(gameDirectory, "logs"), { recursive: true });
-    const logPath = path.join(gameDirectory, "logs", "onyx-latest.log");
+    const logPath = path.join(gameDirectory, "logs", logFileName || "onyx-latest.log");
     const logStream = fs.createWriteStream(logPath, { flags: "a" });
     logStream.write(
       `\n[${new Date().toISOString()}] Onyx is launching ${versionId}\n`,

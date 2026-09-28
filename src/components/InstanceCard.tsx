@@ -20,7 +20,10 @@ import { formatPlaytime } from "../utils";
 interface InstanceCardProps {
   instance: GameInstance;
   compact?: boolean;
-  onPlay: (instance: GameInstance) => void;
+  onPlay: (
+    instance: GameInstance,
+    options?: { multiClient?: boolean; username?: string },
+  ) => void;
   onFavorite?: (instance: GameInstance) => void;
   onMenu?: (instance: GameInstance) => void;
   onCheck?: (instance: GameInstance) => void;
@@ -183,7 +186,9 @@ export function InstanceCard({
         >
           <Play size={16} fill="currentColor" />
           {instance.status === "running"
-            ? t("home.action.stop")
+            ? (instance.runningCount && instance.runningCount > 1
+                ? `${t("home.action.stop")} (${instance.runningCount})`
+                : t("home.action.stop"))
             : instance.status === "installing"
               ? `${instance.installProgress || 0}%`
               : instance.status === "error"

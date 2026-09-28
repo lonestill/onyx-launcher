@@ -85,7 +85,19 @@ contextBridge.exposeInMainWorld("onyx", {
     importBackup: () => ipcRenderer.invoke("instance:import-backup"),
     exportSyncProfile: (id) =>
       ipcRenderer.invoke("instance:sync-export", id),
+    shareSyncProfile: (id) =>
+      ipcRenderer.invoke("instance:sync-share", id),
+    previewSyncProfile: (urlOrId) =>
+      ipcRenderer.invoke("instance:sync-preview-url", urlOrId),
+    importSyncProfileUrl: (urlOrId) =>
+      ipcRenderer.invoke("instance:sync-import-url", urlOrId),
+    getPendingDeepLink: () =>
+      ipcRenderer.invoke("instance:get-pending-deep-link"),
     importSyncProfile: () => ipcRenderer.invoke("instance:sync-import"),
+    getSkinLoaderStatus: (id) =>
+      ipcRenderer.invoke("instance:skin-loader-status", id),
+    installSkinLoader: (id) =>
+      ipcRenderer.invoke("instance:install-skin-loader", id),
   },
   system: {
     chooseDirectory: () => ipcRenderer.invoke("system:choose-directory"),
@@ -148,8 +160,10 @@ contextBridge.exposeInMainWorld("onyx", {
   launcher: {
     preflight: (instanceId) =>
       ipcRenderer.invoke("launcher:preflight", instanceId),
-    play: (instanceId) => ipcRenderer.invoke("launcher:play", instanceId),
-    stop: (instanceId) => ipcRenderer.invoke("launcher:stop", instanceId),
+    play: (instanceId, options) =>
+      ipcRenderer.invoke("launcher:play", instanceId, options),
+    stop: (instanceId, sessionId) =>
+      ipcRenderer.invoke("launcher:stop", instanceId, sessionId),
     getLog: (instanceId) => ipcRenderer.invoke("launcher:get-log", instanceId),
     exportSupportBundle: (instanceId) =>
       ipcRenderer.invoke("launcher:export-support-bundle", instanceId),
@@ -250,4 +264,44 @@ contextBridge.exposeInMainWorld("onyx", {
     ipcRenderer.on("migration:progress", listener);
     return () => ipcRenderer.removeListener("migration:progress", listener);
   },
+  onDeepLinkPack: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("deep-link:pack", listener);
+    return () => ipcRenderer.removeListener("deep-link:pack", listener);
+  },
+  onDeepLinkParty: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("deep-link:party", listener);
+    return () => ipcRenderer.removeListener("deep-link:party", listener);
+  },
+  party: {
+    create: (opts) => ipcRenderer.invoke("party:create", opts),
+    join: (opts) => ipcRenderer.invoke("party:join", opts),
+    status: () => ipcRenderer.invoke("party:status"),
+    updateManifest: (opts) => ipcRenderer.invoke("party:update-manifest", opts),
+    diffManifest: (opts) => ipcRenderer.invoke("party:diff-manifest", opts),
+    setReady: (opts) => ipcRenderer.invoke("party:set-ready", opts),
+    close: () => ipcRenderer.invoke("party:close"),
+    onRoomUpdate: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("party:room-update", listener);
+      return () => ipcRenderer.removeListener("party:room-update", listener);
+    },
+    onSignal: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("party:signal", listener);
+      return () => ipcRenderer.removeListener("party:signal", listener);
+    },
+    onError: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("party:error", listener);
+      return () => ipcRenderer.removeListener("party:error", listener);
+    },
+    onLanDetected: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("party:lan-detected", listener);
+      return () => ipcRenderer.removeListener("party:lan-detected", listener);
+    },
+  },
 });
+

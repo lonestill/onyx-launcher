@@ -5850,6 +5850,179 @@ kbd {
   font-size: var(--font-caption);
 }
 
+/* CustomSkinLoader Card */
+.skin-csl-card {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: var(--radius, 14px);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skin-csl-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.skin-csl-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.skin-csl-card__titles h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.skin-csl-card__titles p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.skin-csl-card__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.skin-csl-card__info-box {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skin-csl-card__info-box--warning {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.03);
+}
+
+.skin-csl-card__info-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.skin-csl-card__info-box--warning .skin-csl-card__info-title {
+  color: #f59e0b;
+}
+
+.skin-csl-card__info-box p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.skin-csl-card__checker {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.skin-csl-card__checker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.skin-csl-card__selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skin-csl-card__selector-wrap label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.skin-csl-card__select {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 12px;
+  font-size: 13px;
+  outline: none;
+  min-width: 220px;
+  cursor: pointer;
+}
+
+.skin-csl-card__select:focus {
+  border-color: var(--accent);
+}
+
+.skin-csl-card__status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.csl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.csl-badge--success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.csl-badge--warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.csl-badge--danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.csl-badge--loading {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+}
+
 /* Modals and command palette */
 
 .modal-backdrop,
@@ -5878,6 +6051,36 @@ kbd {
 
 .create-modal {
   padding: 29px;
+}
+
+.party-join-modal {
+  padding: 28px;
+}
+
+.party-join-modal .modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.party-join-modal .field__control--select {
+  position: relative;
+  cursor: pointer;
+}
+
+.party-join-modal .field__control--select select {
+  cursor: pointer;
+  width: 100%;
+  padding-right: 24px;
+}
+
+.party-join-modal .field__control--select .field__chevron {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  color: var(--text-muted);
 }
 
 .create-presets {

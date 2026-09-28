@@ -18,6 +18,9 @@ import {
   type MaintenanceState,
 } from "./components/MaintenancePill";
 import { Sidebar } from "./components/Sidebar";
+import { ShareModpackModal } from "./components/ShareModpackModal";
+import { ImportLinkModal } from "./components/ImportLinkModal";
+import { JoinPartyModal } from "./components/JoinPartyModal";
 import { TargetInstanceModal } from "./components/TargetInstanceModal";
 import { TitleBar } from "./components/TitleBar";
 import { ToastStack, type ToastMessage } from "./components/Toast";
@@ -126,6 +129,11 @@ export default function App() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [maintenance, setMaintenance] =
     useState<MaintenanceState | null>(null);
+  const [shareInstance, setShareInstance] = useState<GameInstance | null>(null);
+  const [importLinkOpen, setImportLinkOpen] = useState(false);
+  const [importLinkInitialUrl, setImportLinkInitialUrl] = useState<string | null>(null);
+  const [joinPartyOpen, setJoinPartyOpen] = useState(false);
+  const [joinPartyInitialCode, setJoinPartyInitialCode] = useState<string | null>(null);
 
   const pushToast = useCallback(
     (
@@ -154,6 +162,39 @@ export default function App() {
   useEffect(() => {
     window.onyx?.rpc?.setPage?.(route).catch(() => {});
   }, [route]);
+
+  useEffect(() => {
+    const unsubPack = window.onyx?.onDeepLinkPack?.((data) => {
+      if (data?.url) {
+        setImportLinkInitialUrl(data.url);
+        setImportLinkOpen(true);
+      }
+    });
+
+    const unsubParty = window.onyx?.onDeepLinkParty?.((data) => {
+      if (data?.code || data?.url) {
+        setJoinPartyInitialCode(data.code || data.url);
+        setJoinPartyOpen(true);
+      }
+    });
+
+    void window.onyx?.state?.getPendingDeepLink?.().then((pending) => {
+      if (pending) {
+        if (pending.includes("party/") || pending.startsWith("onyx://party/")) {
+          setJoinPartyInitialCode(pending);
+          setJoinPartyOpen(true);
+        } else {
+          setImportLinkInitialUrl(pending);
+          setImportLinkOpen(true);
+        }
+      }
+    }).catch(() => undefined);
+
+    return () => {
+      unsubPack?.();
+      unsubParty?.();
+    };
+  }, []);
 
   useEffect(() => {
     void refreshState()
@@ -474,8 +515,11 @@ export default function App() {
     }
   }
 
-  async function play(instance: GameInstance) {
-    if (instance.status === "running") {
+  async function play(
+    instance: GameInstance,
+    options?: { multiClient?: boolean; username?: string },
+  ) {
+    if (instance.status === "running" && !options?.multiClient) {
       const stopped = await window.onyx.launcher.stop(instance.id);
       if (stopped) {
         pushToast(
@@ -497,7 +541,7 @@ export default function App() {
       logs: "",
     });
     setLaunchExpanded(true);
-    const result = await window.onyx.launcher.play(instance.id);
+    const result = await window.onyx.launcher.play(instance.id, options);
     if (result.ok) {
       setActiveLaunch((current) =>
         current
@@ -1149,7 +1193,15 @@ export default function App() {
             onImport={() => void importPack()}
             onImportBackup={() => void importBackup()}
             onImportSync={() => void importSyncProfile()}
-            onPlay={(instance) => void play(instance)}
+            onImportLink={() => {
+              setImportLinkInitialUrl(null);
+              setImportLinkOpen(true);
+            }}
+            onJoinParty={() => {
+              setJoinPartyInitialCode(null);
+              setJoinPartyOpen(true);
+            }}
+            onPlay={(instance, options) => void play(instance, options)}
             onFavorite={(instance) => void toggleFavorite(instance)}
             onMenu={setInstanceMenu}
             onCheck={(instance) => void checkInstance(instance)}
@@ -1169,7 +1221,15 @@ export default function App() {
               onImport={() => void importPack()}
               onImportBackup={() => void importBackup()}
               onImportSync={() => void importSyncProfile()}
-              onPlay={(item) => void play(item)}
+              onImportLink={() => {
+                setImportLinkInitialUrl(null);
+                setImportLinkOpen(true);
+              }}
+              onJoinParty={() => {
+                setJoinPartyInitialCode(null);
+                setJoinPartyOpen(true);
+              }}
+              onPlay={(item, options) => void play(item, options)}
               onFavorite={(item) => void toggleFavorite(item)}
               onMenu={setInstanceMenu}
               onCheck={(item) => void checkInstance(item)}
@@ -1182,7 +1242,7 @@ export default function App() {
             instance={instance}
             sessions={state.sessions}
             onBack={() => setRoute(instanceReturnRoute)}
-            onPlay={(item) => void play(item)}
+            onPlay={(item, options) => void play(item, options)}
             onCheck={(item) => void checkInstance(item)}
             onSettings={setSettingsInstance}
             onLogs={(item) => void showLogs(item)}
@@ -1191,7 +1251,7 @@ export default function App() {
             }
             onBackup={(item) => void backupInstance(item)}
             onUpdatePack={(item) => void updatePack(item)}
-            onExportSync={(item) => void exportSyncProfile(item)}
+            onExportSync={(item) => setShareInstance(item)}
             onDiscover={(inst) => {
               if (inst) {
                 handleSelectTargetInstance(inst.id);
@@ -1250,6 +1310,7 @@ export default function App() {
         return (
           <SkinsPage
             profile={state.profile}
+            instances={state.instances}
             onAccount={() => setAccountOpen(true)}
             onNotify={(tone, title, message) =>
               pushToast(tone, title, message, 6200)
@@ -1351,11 +1412,12 @@ export default function App() {
       <InstanceMenu
         instance={instanceMenu}
         onClose={() => setInstanceMenu(null)}
-        onPlay={(instance) => void play(instance)}
+        onPlay={(instance, options) => void play(instance, options)}
         onDelete={(instance) => void deleteInstance(instance)}
         onDuplicate={(instance) => void duplicateInstance(instance)}
         onRepair={(instance) => void repairInstance(instance)}
         onBackup={(instance) => void backupInstance(instance)}
+        onShare={(instance) => setShareInstance(instance)}
         onUpdatePack={(instance) => void updatePack(instance)}
         onSettings={(instance) => {
           setInstanceMenu(null);
@@ -1370,6 +1432,47 @@ export default function App() {
           setContentInstance(instance);
         }}
         onLogs={(instance) => void showLogs(instance)}
+      />
+      <ShareModpackModal
+        instance={shareInstance}
+        onClose={() => setShareInstance(null)}
+        onExportFile={(inst) => exportSyncProfile(inst)}
+        onNotify={(tone, title, message) => pushToast(tone, title, message, 6000)}
+      />
+      <ImportLinkModal
+        open={importLinkOpen}
+        initialUrl={importLinkInitialUrl}
+        onClose={() => {
+          setImportLinkOpen(false);
+          setImportLinkInitialUrl(null);
+        }}
+        onSuccess={(inst, installed, skipped) => {
+          void refreshState();
+          setSelectedInstanceId(inst.id);
+          setRoute("instance");
+          pushToast(
+            skipped ? "warning" : "success",
+            t("app.sync.imported", { name: inst.name }),
+            t("app.sync.importedHint", { installed, skipped }),
+            7000,
+          );
+        }}
+        onNotify={(tone, title, message) => pushToast(tone, title, message, 6000)}
+      />
+      <JoinPartyModal
+        open={joinPartyOpen}
+        initialCode={joinPartyInitialCode}
+        instances={state.instances}
+        onClose={() => {
+          setJoinPartyOpen(false);
+          setJoinPartyInitialCode(null);
+        }}
+        onJoinSuccess={(inst) => {
+          setSelectedInstanceId(inst.id);
+          setRoute("instance");
+          void play(inst);
+        }}
+        onNotify={(tone, title, message) => pushToast(tone, title, message, 6000)}
       />
       <ContentModal
         instance={contentInstance}

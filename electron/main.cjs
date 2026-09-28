@@ -85,6 +85,9 @@ const {
   validateSyncProfile,
   identifySyncMods,
   installSyncMods,
+  uploadShareProfile,
+  fetchShareProfile,
+  parseShareIdOrUrl,
 } = require("./services/sync.cjs");
 const {
   FlightRecorder,
@@ -102,6 +105,11 @@ const {
   buildPerformanceCsv,
 } = require("./services/performance-csv.cjs");
 const {
+  checkSkinLoaderStatus,
+  installCustomSkinLoader,
+  syncOfflineSkin,
+} = require("./services/offline-skin.cjs");
+const {
   fetchJson,
   downloadFile,
   hashFile,
@@ -115,6 +123,7 @@ const {
 const curseforgeService = require("./services/curseforge.cjs");
 const { UpdaterService } = require("./services/updater.cjs");
 const { DiscordRpcService } = require("./services/discord-rpc.cjs");
+const partySvc = require("./services/party.cjs");
 
 if (process.env.ONYX_USER_DATA) {
   app.setPath("userData", path.resolve(process.env.ONYX_USER_DATA));
@@ -196,6 +205,20 @@ const discordRpcService = new DiscordRpcService({
   version: ONYX_VERSION,
 });
 const runningGames = new Map();
+
+function offlineUuid(name) {
+  const hash = crypto.createHash("md5").update(`OfflinePlayer:${name}`).digest();
+  hash[6] = (hash[6] & 0x0f) | 0x30;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.toString("hex");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
 const installLocks = new Map();
 const installControllers = new Map();
 const downloadControllers = new Map();
@@ -446,25 +469,6 @@ async function saveState() {
   return savePromise;
 }
 
-async function syncOfflineSkin(profile, instanceDirectory) {
-  if (profile?.kind !== "offline") return false;
-  const skin = profile.skins?.find((item) =>
-    String(item?.url || "").startsWith("data:image/png;base64,"),
-  );
-  if (!skin) return false;
-  const encoded = skin.url.slice("data:image/png;base64,".length);
-  const destination = path.join(
-    instanceDirectory,
-    "CustomSkinLoader",
-    "LocalSkin",
-    "skins",
-    `${profile.name}.png`,
-  );
-  await fsp.mkdir(path.dirname(destination), { recursive: true });
-  await fsp.writeFile(destination, Buffer.from(encoded, "base64"));
-  return true;
-}
-
 function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, payload);
@@ -474,10 +478,15 @@ function send(channel, payload) {
 function serializeState() {
   return structuredClone({
     ...state,
-    instances: state.instances.map((instance) => ({
-      ...instance,
-      status: runningGames.has(instance.id) ? "running" : instance.status,
-    })),
+    instances: state.instances.map((instance) => {
+      const launches = runningGames.get(instance.id);
+      const isRunning = Boolean(launches && launches.size > 0);
+      return {
+        ...instance,
+        status: isRunning ? "running" : instance.status,
+        runningCount: launches?.size || 0,
+      };
+    }),
   });
 }
 
@@ -1124,7 +1133,10 @@ async function buildDiagnostics() {
     counts: {
       instances: state.instances.length,
       downloads: state.downloads.length,
-      running: runningGames.size,
+      running: Array.from(runningGames.values()).reduce(
+        (sum, map) => sum + (map?.size || 0),
+        0,
+      ),
     },
     endpoints,
   };
@@ -2087,24 +2099,7 @@ function registerIpc() {
       recognized: profile.mods.filter((mod) => mod.versionId).length,
     };
   });
-  ipcMain.handle("instance:sync-import", async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      properties: ["openFile"],
-      title: "Import Onyx Sync profile",
-      filters: [
-        { name: "Onyx Sync profile", extensions: ["onyxprofile"] },
-        { name: "JSON", extensions: ["json"] },
-      ],
-    });
-    if (result.canceled || !result.filePaths[0]) return null;
-    const profilePath = result.filePaths[0];
-    const stats = await fsp.stat(profilePath);
-    if (stats.size > 5 * 1024 * 1024) {
-      throw new Error("The Onyx Sync profile is too large");
-    }
-    const profile = validateSyncProfile(
-      JSON.parse(await fsp.readFile(profilePath, "utf8")),
-    );
+  async function importProfileObject(profile, sourceName) {
     const id = crypto.randomUUID();
     const source = profile.instance;
     const instance = {
@@ -2124,7 +2119,7 @@ function registerIpc() {
       playtimeMinutes: 0,
       modCount: 0,
       importedAt: new Date().toISOString(),
-      syncSource: path.basename(profilePath),
+      syncSource: sourceName || "Shared modpack",
     };
     state.instances.unshift(instance);
     await saveState();
@@ -2163,6 +2158,88 @@ function registerIpc() {
       send("instance:updated", structuredClone(instance));
       throw error;
     }
+  }
+
+  ipcMain.handle("instance:sync-import", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openFile"],
+      title: "Import Onyx Sync profile",
+      filters: [
+        { name: "Onyx Sync profile", extensions: ["onyxprofile"] },
+        { name: "JSON", extensions: ["json"] },
+      ],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const profilePath = result.filePaths[0];
+    const stats = await fsp.stat(profilePath);
+    if (stats.size > 5 * 1024 * 1024) {
+      throw new Error("The Onyx Sync profile is too large");
+    }
+    const profile = validateSyncProfile(
+      JSON.parse(await fsp.readFile(profilePath, "utf8")),
+    );
+    return importProfileObject(profile, path.basename(profilePath));
+  });
+
+  ipcMain.handle("instance:sync-share", async (_event, id) => {
+    const instance = findInstance(id);
+    if (runningGames.has(id)) {
+      throw new Error("Stop the game first");
+    }
+    const items = await listInstanceContent(id, "mods");
+    const mods = await identifySyncMods(items);
+    const profile = createSyncProfile({ instance, mods });
+    const shareResult = await uploadShareProfile(profile);
+    return {
+      ...shareResult,
+      total: profile.mods.length,
+      recognized: profile.mods.filter((mod) => mod.versionId).length,
+    };
+  });
+
+  ipcMain.handle("instance:sync-preview-url", async (_event, urlOrId) => {
+    const data = await fetchShareProfile(urlOrId);
+    return {
+      id: data.id,
+      name: data.name,
+      version: data.version,
+      loader: data.loader,
+      modCount: data.modCount,
+      author: data.author,
+      mods: (data.profile?.mods || []).map((mod) => ({
+        name: mod.name,
+        enabled: mod.enabled !== false,
+        versionId: mod.versionId,
+      })),
+    };
+  });
+
+  ipcMain.handle("instance:sync-import-url", async (_event, urlOrId) => {
+    const data = await fetchShareProfile(urlOrId);
+    const profile = validateSyncProfile(data.profile);
+    return importProfileObject(profile, `Link: ${data.id}`);
+  });
+
+  ipcMain.handle("instance:get-pending-deep-link", () => {
+    const link = pendingDeepLinkUrl;
+    pendingDeepLinkUrl = null;
+    return link;
+  });
+
+  ipcMain.handle("instance:skin-loader-status", async (_event, id) => {
+    const instance = findInstance(id);
+    return checkSkinLoaderStatus(instance, state.settings.gameDirectory);
+  });
+
+  ipcMain.handle("instance:install-skin-loader", async (_event, id) => {
+    const instance = findInstance(id);
+    if (!instance) throw new Error("Instance not found");
+    const result = await installCustomSkinLoader({
+      instance,
+      instancesRoot: state.settings.gameDirectory,
+    });
+    send("instance:updated", structuredClone(instance));
+    return result;
   });
 
   ipcMain.handle("system:choose-directory", async () => {
@@ -2789,16 +2866,11 @@ function registerIpc() {
     if (!instance) throw new Error("Instance not found");
     return preflightInstance(instance);
   });
-  ipcMain.handle("launcher:play", async (_event, instanceId) => {
+  ipcMain.handle("launcher:play", async (_event, instanceId, options = {}) => {
     const instance = state.instances.find((item) => item.id === instanceId);
     if (!instance) return { ok: false, reason: "instance-not-found" };
-    if (runningGames.has(instanceId)) {
-      return {
-        ok: false,
-        reason: "already-running",
-        message: "This instance is already running",
-      };
-    }
+    const existingLaunches = runningGames.get(instanceId);
+    const existingCount = existingLaunches?.size || 0;
     try {
       send("launcher:progress", {
         instanceId,
@@ -2835,7 +2907,7 @@ function registerIpc() {
         readModBaseline(instanceDirectory),
       ]);
       const changedMods = recentModChanges(modBaseline, launchMods);
-      if (changedMods.length) {
+      if (changedMods.length && existingCount === 0) {
         send("launcher:progress", {
           instanceId,
           stage: "world-guard",
@@ -2851,7 +2923,18 @@ function registerIpc() {
       }
       let account = null;
       let demo = true;
-      if (state.profile.kind === "microsoft" || state.profile.kind === "offline") {
+      if (options?.username) {
+        const customName = String(options.username).trim();
+        account = {
+          name: customName,
+          uuid: offlineUuid(customName).replaceAll("-", ""),
+          accessToken: "0",
+          userType: "legacy",
+          xuid: "",
+          clientId: "",
+        };
+        demo = false;
+      } else if (state.profile.kind === "microsoft" || state.profile.kind === "offline") {
         if (state.profile.kind === "microsoft") {
           send("launcher:progress", {
             instanceId,
@@ -2864,9 +2947,36 @@ function registerIpc() {
         if (!account) throw new Error("Select a saved account");
         if (state.profile.kind === "offline") {
           await syncOfflineSkin(state.profile, instanceDirectory);
+          try {
+            const csl = await checkSkinLoaderStatus(instance, state.settings.gameDirectory);
+            if (csl.supported && !csl.installed) {
+              await installCustomSkinLoader({
+                instance,
+                instancesRoot: state.settings.gameDirectory,
+              });
+            }
+          } catch (e) {
+            console.warn("Could not ensure CustomSkinLoader on play:", e);
+          }
         }
         demo = false;
       }
+
+      if (existingCount > 0) {
+        if (state.profile.kind === "offline" || !account || demo) {
+          const baseName = account?.name || "Player";
+          const altName = `${baseName}_${existingCount + 1}`;
+          account = {
+            name: altName,
+            uuid: offlineUuid(altName).replaceAll("-", ""),
+            accessToken: "0",
+            userType: "legacy",
+            xuid: "",
+            clientId: "",
+          };
+        }
+      }
+
       const { minecraftService } = createServices();
       const startedAt = Date.now();
       const sessionId = crypto.randomUUID();
@@ -2889,11 +2999,16 @@ function registerIpc() {
         status: null,
         extraJvmArguments: [],
       }));
+      const logFileName =
+        existingCount > 0
+          ? `onyx-client-${existingCount + 1}.log`
+          : "onyx-latest.log";
       const launch = await minecraftService.buildLaunch({
         instance,
         settings: effectiveSettings(instance),
         account,
         demo,
+        logFileName,
         launchWrapper: fpsLaunch.wrapper,
         extraJvmArguments: fpsLaunch.extraJvmArguments,
         onSpawn: (pid) => {
@@ -2909,11 +3024,27 @@ function registerIpc() {
         },
         onLog: (payload) => {
           recorder.ingestLog(payload.text);
+          partySvc.ingestGameLog(payload.text);
           discordRpcService.ingestGameLog(instanceId, payload.text, state.settings);
           send("launcher:log", { instanceId, ...payload });
         },
         onExit: async ({ code, logPath }) => {
-          runningGames.delete(instanceId);
+          const currentMap = runningGames.get(instanceId);
+          if (currentMap) {
+            currentMap.delete(sessionId);
+            if (currentMap.size === 0) {
+              runningGames.delete(instanceId);
+            }
+          }
+          const stillRunningCount = runningGames.get(instanceId)?.size || 0;
+          if (stillRunningCount > 0) {
+            instanceUpdate(instance, {
+              status: "running",
+              runningCount: stillRunningCount,
+            });
+            await saveState();
+            return;
+          }
           discordRpcService.instanceGameStates.delete(instanceId);
           if (state.settings.discordRpc !== false) {
             if (runningGames.size > 0) {
@@ -3072,6 +3203,7 @@ function registerIpc() {
           instance.lastPerformance = performance;
           instanceUpdate(instance, {
             status: "ready",
+            runningCount: 0,
             playtimeMinutes: instance.playtimeMinutes,
             lastExitCode: code,
             lastDiagnosis: instance.lastDiagnosis,
@@ -3089,7 +3221,11 @@ function registerIpc() {
           }
         },
       });
-      runningGames.set(instanceId, launch);
+      if (!runningGames.has(instanceId)) {
+        runningGames.set(instanceId, new Map());
+      }
+      runningGames.get(instanceId).set(sessionId, launch);
+      const newRunningCount = runningGames.get(instanceId).size;
       if (state.settings.discordRpc !== false) {
         discordRpcService.setPlaying(instance, {
           showGame: state.settings.discordRpcShowGame !== false,
@@ -3103,6 +3239,7 @@ function registerIpc() {
       }
       instanceUpdate(instance, {
         status: "running",
+        runningCount: newRunningCount,
         lastPlayed: "Just now",
         lastLogPath: launch.logPath,
         javaPath: launch.executable,
@@ -3136,10 +3273,18 @@ function registerIpc() {
       };
     }
   });
-  ipcMain.handle("launcher:stop", async (_event, instanceId) => {
-    const launch = runningGames.get(instanceId);
-    if (launch) {
-      launch.child.kill();
+  ipcMain.handle("launcher:stop", async (_event, instanceId, sessionId = null) => {
+    const launches = runningGames.get(instanceId);
+    if (launches && launches.size > 0) {
+      if (sessionId && launches.has(sessionId)) {
+        launches.get(sessionId).child.kill();
+        return true;
+      }
+      for (const launch of launches.values()) {
+        try {
+          launch.child.kill();
+        } catch {}
+      }
       return true;
     }
     const installation = installControllers.get(instanceId);
@@ -3151,8 +3296,14 @@ function registerIpc() {
   });
   ipcMain.handle("launcher:get-log", async (_event, instanceId) => {
     const instance = state.instances.find((item) => item.id === instanceId);
-    const logPath =
-      runningGames.get(instanceId)?.logPath || instance?.lastLogPath;
+    const launches = runningGames.get(instanceId);
+    let logPath = null;
+    if (launches && launches.size > 0) {
+      for (const l of launches.values()) {
+        logPath = l.logPath;
+      }
+    }
+    if (!logPath) logPath = instance?.lastLogPath;
     if (!logPath) return { path: null, content: "", analysis: [] };
     try {
       const content = await fsp.readFile(logPath, "utf8");
@@ -3194,8 +3345,12 @@ function registerIpc() {
       });
       if (result.canceled || !result.filePath) return null;
 
-      const logPath =
-        runningGames.get(instanceId)?.logPath || instance.lastLogPath;
+      const launches = runningGames.get(instanceId);
+      let logPath = null;
+      if (launches && launches.size > 0) {
+        for (const l of launches.values()) logPath = l.logPath;
+      }
+      if (!logPath) logPath = instance.lastLogPath;
       const [diagnostics, logContent] = await Promise.all([
         buildDiagnostics(),
         logPath
@@ -3246,17 +3401,73 @@ function registerIpc() {
   });
 }
 
+let pendingDeepLinkUrl = null;
+
+function handleDeepLinkUrl(url) {
+  if (!url || typeof url !== "string") return;
+  const partyMatch =
+    url.match(/^onyx:\/\/party\/([a-zA-Z0-9_-]+)/i) ||
+    url.match(/\/party\/([a-zA-Z0-9_-]+)/i);
+  if (partyMatch) {
+    const code = partyMatch[1].toUpperCase();
+    if (!mainWindow || !mainWindow.webContents) {
+      pendingDeepLinkUrl = url;
+      return;
+    }
+    void restoreLauncherWindow();
+    send("deep-link:party", { url, code });
+    return;
+  }
+  const packId = parseShareIdOrUrl(url);
+  if (!packId) return;
+  if (!mainWindow || !mainWindow.webContents) {
+    pendingDeepLinkUrl = url;
+    return;
+  }
+  void restoreLauncherWindow();
+  send("deep-link:pack", { url, packId });
+}
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", (_event, commandLine) => {
     void restoreLauncherWindow();
+    const deepUrl = (commandLine || []).find(
+      (arg) => typeof arg === "string" && arg.startsWith("onyx://"),
+    );
+    if (deepUrl) {
+      handleDeepLinkUrl(deepUrl);
+    }
+  });
+
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    handleDeepLinkUrl(url);
   });
 
   app.whenReady().then(async () => {
     app.setAppUserModelId("app.onyx.launcher");
     nativeTheme.themeSource = "dark";
+
+    if (process.defaultApp) {
+      if (process.argv.length >= 2) {
+        app.setAsDefaultProtocolClient("onyx", process.execPath, [
+          path.resolve(process.argv[1]),
+        ]);
+      }
+    } else {
+      app.setAsDefaultProtocolClient("onyx");
+    }
+
+    const startupDeepLink = process.argv.find(
+      (arg) => typeof arg === "string" && arg.startsWith("onyx://"),
+    );
+    if (startupDeepLink) {
+      pendingDeepLinkUrl = startupDeepLink;
+    }
+
     await loadState();
     authService = new AuthService(app.getPath("userData"));
     javaService = new JavaService(path.join(onyxRoot(), "runtimes"));
@@ -3318,6 +3529,17 @@ if (!gotLock) {
       });
     }
 
+    partySvc.initStorage(onyxRoot());
+    partySvc.restoreSavedSession().then((restored) => {
+      if (restored) {
+        console.log(`[party] Restored active room ${restored.code} (isHost: ${restored.isHost})`);
+        wirePartySession();
+        mainWindow?.webContents?.send("party:room-update", partySvc.getRoomState());
+      }
+    }).catch((err) => {
+      console.warn("[party] Could not restore room session:", err.message);
+    });
+
     app.on("activate", async () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         await restoreLauncherWindow();
@@ -3362,4 +3584,184 @@ process.on("uncaughtException", async (error) => {
 
 process.on("unhandledRejection", async (reason) => {
   await writeCrashLog("unhandledRejection", reason);
+});
+
+// ─── Party IPC Handlers (v2.0.0) ─────────────────────────────────────────────
+
+/**
+ * party:create
+ * Creates a new party room on the Hub (host mode).
+ * input: { displayName?, instanceId? }
+ * returns: { code, deepLink, webLink, expiresAt, peerId }
+ */
+ipcMain.handle("party:create", async (_event, { displayName, instanceId } = {}) => {
+  let manifest = null;
+  if (instanceId) {
+    const instance = state.instances.find((i) => i.id === instanceId);
+    if (instance) {
+      const instanceDir = path.join(
+        state.settings.gameDirectory || path.join(onyxRoot(), "instances"),
+        instance.id,
+        "mods"
+      );
+      // Build a lightweight manifest (mod files in mods/) for sync detection
+      const mods = [];
+      try {
+        const { listInstanceContent } = require("./main.cjs"); // noop — inline below
+        const files = await fsp.readdir(instanceDir).catch(() => []);
+        for (const file of files) {
+          if (/\.jar(?:\.disabled)?$/i.test(file)) {
+            mods.push({ fileName: file, path: path.join(instanceDir, file) });
+          }
+        }
+      } catch { /**/ }
+      manifest = await partySvc.buildManifest(instance, mods).catch(() => null);
+    }
+  }
+
+  const result = await partySvc.createRoom({ displayName, instanceId, instanceManifest: manifest });
+
+  wirePartySession();
+
+  return { ...result, peerId: partySvc.activePeerId };
+});
+
+function wirePartySession() {
+  partySvc.startSession({
+    onRoomUpdate: (roomState) => {
+      mainWindow?.webContents?.send("party:room-update", roomState);
+      if (!partySvc.isHost && roomState?.tunnelHost && roomState?.tunnelPort) {
+        void partySvc.ensureGuestProxyAndBeacon(roomState.tunnelHost, roomState.tunnelPort);
+      }
+    },
+    onSignal: (signal) => {
+      mainWindow?.webContents?.send("party:signal", signal);
+    },
+    onError: (err) => {
+      mainWindow?.webContents?.send("party:error", err?.message || String(err));
+    },
+    onLanDetected: (info) => {
+      mainWindow?.webContents?.send("party:lan-detected", info);
+    },
+  });
+}
+
+/**
+ * party:join
+ * Join an existing room as a guest.
+ * input: { code, displayName?, instanceId? }
+ * returns: initial roomState
+ */
+ipcMain.handle("party:join", async (_event, { code, displayName, instanceId } = {}) => {
+  const roomState = await partySvc.joinRoom({ code: String(code).toUpperCase(), displayName, instanceId });
+
+  wirePartySession();
+
+  return roomState;
+});
+
+/**
+ * party:status
+ * Returns current cached room state and local party metadata.
+ */
+ipcMain.handle("party:status", () => {
+  return {
+    inRoom: partySvc.isInRoom,
+    isHost: partySvc.isHost,
+    peerId: partySvc.activePeerId,
+    instanceId: partySvc.activeInstanceId,
+    guestProxyPort: partySvc.guestProxyPort,
+    room: partySvc.getRoomState(),
+  };
+});
+
+/**
+ * party:update-manifest
+ * Host pushes an updated instance manifest to the room.
+ * input: { instanceId }
+ */
+ipcMain.handle("party:update-manifest", async (_event, { instanceId } = {}) => {
+  const instance = state.instances.find((i) => i.id === instanceId);
+  if (!instance) throw new Error("Instance not found");
+
+  const instanceDir = path.join(
+    state.settings.gameDirectory || path.join(onyxRoot(), "instances"),
+    instance.id,
+    "mods"
+  );
+  const mods = [];
+  try {
+    const files = await fsp.readdir(instanceDir).catch(() => []);
+    for (const file of files) {
+      if (/\.jar(?:\.disabled)?$/i.test(file)) {
+        mods.push({ fileName: file, path: path.join(instanceDir, file) });
+      }
+    }
+  } catch { /**/ }
+
+  const manifest = await partySvc.buildManifest(instance, mods);
+  await partySvc.updateRoomManifest(manifest);
+  return manifest;
+});
+
+/**
+ * party:diff-manifest
+ * Diff local instance against host manifest from room state.
+ * input: { instanceId }
+ * returns: { identical, missing, outdated, extra, loaderMismatch, hostManifest }
+ */
+ipcMain.handle("party:diff-manifest", async (_event, { instanceId } = {}) => {
+  if (!partySvc.isInRoom) throw new Error("Not in a room");
+
+  const roomState = partySvc.getRoomState();
+  const hostManifest = roomState?.instanceManifest;
+  if (!hostManifest) return { identical: true, missing: [], outdated: [], extra: [], loaderMismatch: false, hostManifest: null };
+
+  const instance = state.instances.find((i) => i.id === instanceId);
+  if (!instance) throw new Error("Instance not found");
+
+  const instanceDir = path.join(
+    state.settings.gameDirectory || path.join(onyxRoot(), "instances"),
+    instance.id,
+    "mods"
+  );
+
+  const localMods = [];
+  try {
+    const { hashFile } = require("./services/network.cjs");
+    const files = await fsp.readdir(instanceDir).catch(() => []);
+    for (const file of files) {
+      if (/\.jar(?:\.disabled)?$/i.test(file)) {
+        const sha1 = await hashFile(path.join(instanceDir, file), "sha1").catch(() => null);
+        localMods.push({ fileName: file, sha1, enabled: !file.endsWith(".disabled") });
+      }
+    }
+  } catch { /**/ }
+
+  const diff = partySvc.diffManifest(localMods, hostManifest);
+  const loaderMismatch =
+    hostManifest.loader !== instance.loader ||
+    hostManifest.minecraftVersion !== instance.version;
+
+  return { ...diff, loaderMismatch, hostManifest };
+});
+
+/**
+ * party:set-ready
+ * Mark current peer as ready (sync complete).
+ * input: { ready? }
+ */
+ipcMain.handle("party:set-ready", async (_event, { ready = true } = {}) => {
+  await partySvc.setReady(ready);
+  return { success: true };
+});
+
+/**
+ * party:close
+ * Leave room (or close if host).
+ */
+ipcMain.handle("party:close", async () => {
+  await partySvc.leaveRoom(partySvc.isHost);
+  mainWindow?.webContents?.send("party:room-update", null);
+  return { success: true };
 });

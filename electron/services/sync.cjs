@@ -275,10 +275,47 @@ async function installSyncMods({
   return { installed: downloads.length, skipped };
 }
 
+const DEFAULT_HUB_URL = "https://onyx-launcher-hub.vercel.app";
+
+function parseShareIdOrUrl(input) {
+  if (!input || typeof input !== "string") return "";
+  const trimmed = input.trim();
+  if (trimmed.startsWith("onyx://party/") || trimmed.includes("/party/")) return "";
+  const deepMatch = trimmed.match(/^onyx:\/\/pack\/([a-zA-Z0-9_-]+)/i);
+  if (deepMatch) return deepMatch[1];
+  const urlMatch = trimmed.match(/\/pack\/([a-zA-Z0-9_-]+)/i);
+  if (urlMatch) return urlMatch[1];
+  if (/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+    return trimmed.startsWith("pk_") ? trimmed : `pk_${trimmed}`;
+  }
+  return trimmed;
+}
+
+async function uploadShareProfile(profile, { hubUrl = DEFAULT_HUB_URL, author = null, signal } = {}) {
+  const endpoint = `${hubUrl.replace(/\/+$/, "")}/api/v1/share`;
+  return fetchJson(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile, author }),
+    signal,
+  });
+}
+
+async function fetchShareProfile(idOrUrl, { hubUrl = DEFAULT_HUB_URL, signal } = {}) {
+  const id = parseShareIdOrUrl(idOrUrl);
+  if (!id) throw new Error("Invalid share link or pack ID");
+  const endpoint = `${hubUrl.replace(/\/+$/, "")}/api/v1/share?id=${encodeURIComponent(id)}`;
+  return fetchJson(endpoint, { signal });
+}
+
 module.exports = {
   SYNC_SCHEMA,
+  DEFAULT_HUB_URL,
   createSyncProfile,
   validateSyncProfile,
   identifySyncMods,
   installSyncMods,
+  parseShareIdOrUrl,
+  uploadShareProfile,
+  fetchShareProfile,
 };

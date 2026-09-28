@@ -51,6 +51,8 @@ import {
   Trash2,
   Wifi,
   X,
+  Users2,
+  BookOpen,
 } from "lucide-react";
 import { useSearchFocus } from "../hooks/useSearchFocus";
 import { useI18n } from "../i18n";
@@ -69,6 +71,7 @@ import type {
   ModBisectSession,
   ModProfile,
   PackUpdatePreview,
+  PartyRoomState,
   PlaySession,
   WorldSnapshot,
 } from "../types";
@@ -107,7 +110,10 @@ interface InstancePageProps {
   instance: GameInstance;
   sessions: PlaySession[];
   onBack: () => void;
-  onPlay: (instance: GameInstance) => void;
+  onPlay: (
+    instance: GameInstance,
+    options?: { multiClient?: boolean; username?: string },
+  ) => void;
   onCheck: (instance: GameInstance) => void;
   onSettings: (instance: GameInstance) => void;
   onLogs: (instance: GameInstance) => void;
@@ -222,6 +228,82 @@ export function InstancePage({
     string | null
   >(null);
   const [copiedScreenshot, setCopiedScreenshot] = useState(false);
+
+  // ── Party state ──────────────────────────────────────────────────────────────
+  const [partyRoom, setPartyRoom] = useState<PartyRoomState | null>(null);
+  const [partyInstanceId, setPartyInstanceId] = useState<string | null>(null);
+  const [partyLanInfo, setPartyLanInfo] = useState<{ lanPort: number; relayPort: number; hostIp: string; isE4mc?: boolean } | null>(null);
+  const [partyCreating, setPartyCreating] = useState(false);
+  const [partyCopied, setPartyCopied] = useState(false);
+  const [partyGuideOpen, setPartyGuideOpen] = useState(true);
+
+  // Subscribe to room updates once on mount
+  useEffect(() => {
+    const unsubUpdate = window.onyx.party.onRoomUpdate((state) => {
+      setPartyRoom(state);
+    });
+    const unsubLan = window.onyx.party.onLanDetected?.((info) => {
+      setPartyLanInfo(info);
+    });
+    // Restore state if already in a room (persisted across restarts or navigation)
+    void window.onyx.party.status().then((s) => {
+      if (s.inRoom && s.room) {
+        setPartyRoom(s.room);
+        if (s.instanceId) setPartyInstanceId(s.instanceId);
+      }
+    }).catch(() => undefined);
+    return () => {
+      unsubUpdate();
+      unsubLan?.();
+    };
+  }, []);
+
+  const handlePartyCreate = useCallback(async () => {
+    setPartyCreating(true);
+    try {
+      await window.onyx.party.create({ instanceId: instance.id });
+      setPartyInstanceId(instance.id);
+      // partyRoom will be populated by onRoomUpdate subscription
+    } catch {
+      onNotify("warning", t("party.error.create"), "");
+    } finally {
+      setPartyCreating(false);
+    }
+  }, [instance.id, onNotify, t]);
+
+  const handlePartyClose = useCallback(async () => {
+    await window.onyx.party.close().catch(() => undefined);
+    setPartyRoom(null);
+    setPartyInstanceId(null);
+    setPartyLanInfo(null);
+  }, []);
+
+  const handlePartyCopyCode = useCallback(() => {
+    if (!partyRoom) return;
+    const text = `onyx://party/${partyRoom.code}`;
+    void navigator.clipboard.writeText(text).then(() => {
+      setPartyCopied(true);
+      setTimeout(() => setPartyCopied(false), 2000);
+    });
+  }, [partyRoom]);
+
+  // TTL countdown for party room display
+  const [partyTimeLeft, setPartyTimeLeft] = useState("");
+  useEffect(() => {
+    if (!partyRoom) { setPartyTimeLeft(""); return; }
+    const update = () => {
+      const ms = new Date(partyRoom.expiresAt).getTime() - Date.now();
+      if (ms <= 0) { setPartyTimeLeft(""); return; }
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      setPartyTimeLeft(h > 0 ? `${h}ч ${m}м` : `${m}м`);
+    };
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, [partyRoom]);
+
+  const isRoomForThisInstance = Boolean(partyRoom && (!partyInstanceId || partyInstanceId === instance.id));
 
   const loadScreenshots = useCallback(async () => {
     try {
@@ -1255,6 +1337,30 @@ export function InstancePage({
             <FolderOpen size={16} />
             {t("instancePage.actions.folder")}
           </button>
+          {isRoomForThisInstance && partyRoom ? (
+            <button
+              className="button button--secondary party-btn party-btn--active"
+              title={t("party.button.close")}
+              onClick={() => void handlePartyClose()}
+            >
+              <Users2 size={16} />
+              <span className="party-btn__code">{partyRoom.code}</span>
+              <span className="party-btn__peers">{partyRoom.peers.length}</span>
+            </button>
+          ) : (
+            <button
+              className="button button--secondary party-btn"
+              disabled={partyCreating || instance.status === "installing"}
+              onClick={() => void handlePartyCreate()}
+            >
+              {partyCreating ? (
+                <LoaderCircle className="spin" size={16} />
+              ) : (
+                <Users2 size={16} />
+              )}
+              {partyCreating ? t("party.creating") : t("party.button.create")}
+            </button>
+          )}
           <div className="dropdown-wrapper" ref={moreMenuRef}>
             <button
               className={`button button--secondary ${
@@ -1307,9 +1413,35 @@ export function InstancePage({
                   <Share2 size={15} />
                   <span>{t("instancePage.actions.sync")}</span>
                 </button>
+                {instance.status === "running" && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      onPlay(instance, { multiClient: true });
+                    }}
+                  >
+                    <Plus size={15} />
+                    <span>{t("instancePage.actions.launchAnother")}</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
+          {instance.status === "running" && (
+            <button
+              type="button"
+              className="instance-hero__play-more"
+              title={t("instancePage.actions.launchAnother")}
+              onClick={() => onPlay(instance, { multiClient: true })}
+            >
+              <Plus size={15} />
+              <span>{t("instancePage.actions.addClient")}</span>
+              {Boolean(instance.runningCount && instance.runningCount > 1) && (
+                <span className="instance-hero__count-badge">{instance.runningCount}x</span>
+              )}
+            </button>
+          )}
           <button
             className="button button--primary instance-hero__play"
             disabled={instance.status === "installing"}
@@ -1321,7 +1453,9 @@ export function InstancePage({
               <Play size={16} fill="currentColor" />
             )}
             {instance.status === "running"
-              ? t("home.action.stop")
+              ? (instance.runningCount && instance.runningCount > 1
+                  ? `${t("home.action.stop")} (${instance.runningCount})`
+                  : t("home.action.stop"))
               : t("home.action.play")}
           </button>
         </div>
@@ -1365,6 +1499,132 @@ export function InstancePage({
       {tab === "overview" && (
         <div className="instance-overview">
           <div className="instance-overview__main">
+            {isRoomForThisInstance && partyRoom && (
+              <section className="instance-section party-card">
+                <div className="instance-section__head">
+                  <div>
+                    <p>{t("party.section.title")}</p>
+                    <h2>
+                      {partyRoom.status === "hosting"
+                        ? t("party.status.hosting")
+                        : t("party.status.waiting")}
+                    </h2>
+                  </div>
+                  <div className="party-card__head-actions">
+                    <button
+                      className={`button button--mini button--secondary ${partyGuideOpen ? "is-active" : ""}`}
+                      onClick={() => setPartyGuideOpen((prev) => !prev)}
+                    >
+                      <BookOpen size={14} />
+                      {t("party.guide.toggle")}
+                    </button>
+                    <button
+                      className="button button--mini button--secondary"
+                      onClick={handlePartyCopyCode}
+                    >
+                      {partyCopied ? <Check size={14} /> : <ClipboardCopy size={14} />}
+                      {partyCopied ? t("party.section.copied") : t("party.section.copy")}
+                    </button>
+                    <button
+                      className="button button--mini button--danger-quiet"
+                      onClick={() => void handlePartyClose()}
+                    >
+                      <Trash2 size={14} />
+                      {t("party.button.close")}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="party-card__body">
+                  <div className="party-card__code-box" onClick={handlePartyCopyCode}>
+                    <div className="party-card__code-left">
+                      <span className="party-card__code-label">{t("party.section.code")}</span>
+                      <span className="party-card__code-val">{partyRoom.code}</span>
+                    </div>
+                    <span className="party-card__code-link">onyx://party/{partyRoom.code}</span>
+                  </div>
+
+                  <div className="party-card__network-status">
+                    <span className={`party-card__network-dot ${partyLanInfo || partyRoom.tunnelHost ? "is-live" : ""}`} />
+                    <span className="party-card__network-text">
+                      {partyLanInfo?.isE4mc
+                        ? t("party.lan.e4mcReady", { domain: partyLanInfo.hostIp })
+                        : partyLanInfo?.relayPort
+                          ? t("party.lan.relayReady", { port: partyLanInfo.relayPort })
+                          : partyRoom.tunnelHost
+                            ? t("party.lan.e4mcReady", { domain: partyRoom.tunnelHost })
+                            : t("party.lan.waiting")}
+                    </span>
+                  </div>
+
+                  {partyGuideOpen && (
+                    <div className="party-guide">
+                      <div className="party-guide__header">
+                        <BookOpen size={14} className="party-guide__icon" />
+                        <span>{t("party.guide.title")}</span>
+                      </div>
+                      <div className="party-guide__steps">
+                        <div className="party-guide__step">
+                          <span className="party-guide__step-num">1</span>
+                          <div className="party-guide__step-content">
+                            <strong>{t("party.guide.step1.title")}</strong>
+                            <p>{t("party.guide.step1.desc")}</p>
+                          </div>
+                        </div>
+                        <div className="party-guide__step">
+                          <span className="party-guide__step-num">2</span>
+                          <div className="party-guide__step-content">
+                            <strong>{t("party.guide.step2.title")}</strong>
+                            <p>{t("party.guide.step2.desc")}</p>
+                          </div>
+                        </div>
+                        <div className="party-guide__step">
+                          <span className="party-guide__step-num">3</span>
+                          <div className="party-guide__step-content">
+                            <strong>{t("party.guide.step3.title")}</strong>
+                            <p>{t("party.guide.step3.desc")}</p>
+                          </div>
+                        </div>
+                        <div className="party-guide__step">
+                          <span className="party-guide__step-num">4</span>
+                          <div className="party-guide__step-content">
+                            <strong>{t("party.guide.step4.title")}</strong>
+                            <p>{t("party.guide.step4.desc")}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {partyTimeLeft && (
+                    <div className="party-card__meta">
+                      <Clock3 size={13} />
+                      <span>{t("party.section.expires")}: <strong>{partyTimeLeft}</strong></span>
+                    </div>
+                  )}
+
+                  <div className="party-card__peers">
+                    <div className="party-card__peers-header">
+                      <span>{t("party.section.peers")} ({partyRoom.peers.length})</span>
+                    </div>
+                    <div className="party-card__peers-list">
+                      {partyRoom.peers.map((peer) => (
+                        <div key={peer.peerId} className="party-card__peer">
+                          <span className={`party-card__peer-dot ${peer.ready ? "is-ready" : ""}`} />
+                          <span className="party-card__peer-name">
+                            {peer.displayName || peer.peerId.slice(0, 10)}
+                            {peer.isHost && <span className="party-badge">{t("party.section.host")}</span>}
+                          </span>
+                          <span className="party-card__peer-status">
+                            {peer.ready ? t("party.section.ready") : t("party.section.waiting")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
             {instance.updateAvailable && (
               <section className="instance-section instance-update-preview">
                 <div className="instance-section__head">
