@@ -4,6 +4,14 @@
 
 Цель: предоставить игрокам возможность играть вместе в любые кастомные сборки в 1 клик прямо из лаунчера без аренды серверов, без Hamachi/Radmin, без ручного проброса портов (NAT traversal) и без конфликтов версий модов.
 
+### ✅ Готовность модулей (Release Candidate)
+- [x] **Zero-Config Virtual LAN & P2P Tunnels**: WebRTC DataChannels, e4mc fallback, STUN/TURN, UDP Beacon, direct `servers.dat` injection.
+- [x] **Scope Rooms UI & Deep Linking**: `scope://party/CODE` deep links with legacy `onyx://` backward compatibility.
+- [x] **1-Click Join («Залететь к хосту»)**: Прямой запуск клиента Minecraft с аргументами `--server 127.0.0.1 --port <guestProxyPort>`, минуя сетевое меню.
+- [x] **In-Room Modpack Sync**: Быстрый diff манифестов хоста и гостя, докачка недостающих модов в 1 клик.
+- [x] **Scope Hub Web Landing**: `/party/[code]` SSR-лендинг инвайтов с метатегами и авторедиректом.
+- [x] **Полная локализация (i18n)**: 100% паритет `ru.ts` и `en.ts` (1292 ключа), чистый брендинг Scope Room.
+
 ---
 
 ### Модуль 1: Комнаты и P2P-туннели (Scope Rooms & Zero-Config Virtual LAN)
