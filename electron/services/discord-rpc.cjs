@@ -110,7 +110,7 @@ class DiscordRpcService extends EventEmitter {
   constructor(options = {}) {
     super();
     this.clientId = options.clientId || DEFAULT_CLIENT_ID;
-    this.version = options.version || "2.0.1";
+    this.version = options.version || "2.0.2";
     this.socket = null;
     this.connected = false;
     this.connecting = false;

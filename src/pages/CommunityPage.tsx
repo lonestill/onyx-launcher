@@ -77,7 +77,7 @@ export function CommunityPage({
           title: formTitle.trim(),
           comment: formComment.trim(),
           contact: formContact.trim() || undefined,
-          launcher_version: "2.0.1",
+          launcher_version: "2.0.2",
           os: navigator.userAgent.includes("Mac") ? "macOS" : "Windows",
           arch: "arm64",
           tags: [formType === "review" ? "Review" : formType === "bug" ? "Bug" : "Suggestion"],
@@ -318,7 +318,7 @@ export function CommunityPage({
                 )}
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--text-muted)", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                  <span>{item.contact ? item.contact : (isRu ? "Анонимный игрок" : "Anonymous")} • v{item.launcher_version || "2.0.1"}</span>
+                  <span>{item.contact ? item.contact : (isRu ? "Анонимный игрок" : "Anonymous")} • v{item.launcher_version || "2.0.2"}</span>
                   <span>{new Date(item.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
