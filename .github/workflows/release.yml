@@ -251,8 +251,4 @@ jobs:
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "Scope Launcher ${VERSION}"
-          for file in release-assets/*; do
-            echo "Uploading asset: $file"
-            gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber
-          done
+          gh release create "$TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "Scope Launcher ${VERSION}"

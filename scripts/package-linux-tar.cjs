@@ -15,7 +15,7 @@ const output = path.resolve(
     path.join(
       projectRoot,
       "release",
-      `Onyx-Launcher-${packageMetadata.version}-linux-${process.arch}.tar.gz`,
+      `Scope-Launcher-${packageMetadata.version}-linux-${process.arch}.tar.gz`,
     ),
 );
 const sourceDateEpoch = Number.parseInt(
@@ -29,6 +29,8 @@ const archiveTimestamp = new Date(
 );
 
 const executableModes = new Map([
+  ["scope-launcher", 0o755],
+  ["launch-scope.sh", 0o755],
   ["onyx-launcher", 0o755],
   ["launch-onyx.sh", 0o755],
   ["chrome_crashpad_handler", 0o755],

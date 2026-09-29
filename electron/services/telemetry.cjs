@@ -100,9 +100,9 @@ class TelemetryService {
       "$pageview",
       {
         ...baseProps,
-        $current_url: `https://scope-launcher.app/v${version || "2.0.3"}`,
+        $current_url: `https://scope-launcher.app/v${version || "2.0.4"}`,
         $host: "scope-launcher.app",
-        $pathname: `/v${version || "2.0.3"}`,
+        $pathname: `/v${version || "2.0.4"}`,
       },
       { enabled },
     );

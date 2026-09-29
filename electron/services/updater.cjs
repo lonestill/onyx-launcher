@@ -106,18 +106,11 @@ function selectAsset(assets = [], platform = process.platform) {
   }
 
   if (normPlatform === "linux") {
-    // Linux: .AppImage or .tar.gz
+    // Linux in-app updater strictly targets .AppImage because .tar.gz archives cannot be self-installed in-place.
     const appImages = assets.filter(
       (a) => a && typeof a.name === "string" && a.name.toLowerCase().endsWith(".appimage")
     );
-    if (appImages.length > 0) return appImages[0];
-    const tars = assets.filter(
-      (a) =>
-        a &&
-        typeof a.name === "string" &&
-        (a.name.toLowerCase().endsWith(".tar.gz") || a.name.toLowerCase().endsWith(".tar"))
-    );
-    return tars[0] || null;
+    return appImages[0] || null;
   }
 
   return null;
@@ -362,7 +355,6 @@ async function applyUpdate({ filePath, platform = process.platform }) {
   }
 
   if (normPlatform === "linux") {
-    // Linux: sets execute permissions chmod +x and prepares launch or reveals
     try {
       await fsp.chmod(filePath, 0o755);
     } catch {
@@ -370,7 +362,22 @@ async function applyUpdate({ filePath, platform = process.platform }) {
     }
 
     if (filePath.toLowerCase().endsWith(".appimage")) {
-      const child = spawn(filePath, [], {
+      let targetLaunch = filePath;
+      const currentAppImage = process.env.APPIMAGE;
+      if (currentAppImage && fs.existsSync(currentAppImage)) {
+        try {
+          const backup = `${currentAppImage}.old-${Date.now()}`;
+          await fsp.rename(currentAppImage, backup);
+          await fsp.copyFile(filePath, currentAppImage);
+          await fsp.chmod(currentAppImage, 0o755);
+          await fsp.rm(backup, { force: true }).catch(() => undefined);
+          targetLaunch = currentAppImage;
+        } catch {
+          // If in read-only location, launch downloaded file directly
+        }
+      }
+
+      const child = spawn(targetLaunch, [], {
         detached: true,
         stdio: "ignore",
       });
@@ -384,7 +391,7 @@ async function applyUpdate({ filePath, platform = process.platform }) {
       if (electron?.shell && typeof electron.shell.showItemInFolder === "function") {
         electron.shell.showItemInFolder(filePath);
       }
-      return true;
+      throw new Error(`Downloaded update (${path.basename(filePath)}) is an archive and cannot be applied in-place. An .AppImage is required for Linux auto-updates.`);
     }
   }
 

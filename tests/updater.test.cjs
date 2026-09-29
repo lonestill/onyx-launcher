@@ -101,18 +101,17 @@ test("selectAsset matches platform-appropriate assets", () => {
   assert.ok(macZipOnly);
   assert.equal(macZipOnly.name, "Onyx-Launcher-1.7.0-mac.zip");
 
-  // Linux: prefers .AppImage over .tar.gz
+  // Linux: selects .AppImage and strictly rejects .tar.gz for in-app updates
   const linuxAsset = selectAsset(assets, "linux");
   assert.ok(linuxAsset);
   assert.equal(linuxAsset.name, "Onyx-Launcher-1.7.0.AppImage");
 
-  // Linux fallback to .tar.gz
+  // Linux rejects .tar.gz when no .AppImage is present
   const linuxTarOnly = selectAsset(
     [{ name: "Onyx-Launcher-1.7.0.tar.gz", browser_download_url: "url", size: 100 }],
     "linux"
   );
-  assert.ok(linuxTarOnly);
-  assert.equal(linuxTarOnly.name, "Onyx-Launcher-1.7.0.tar.gz");
+  assert.equal(linuxTarOnly, null);
 
   // Empty or non-matching assets
   assert.equal(selectAsset([], "win32"), null);
