@@ -14,7 +14,7 @@ import { ru } from "./locales/ru";
 import { isLocale } from "./locales/index";
 
 export type Locale = BaseLocale;
-export type TranslationValues = Record<string, string | number>;
+export type TranslationValues = Record<string, string | number | boolean | null | undefined>;
 export type { TranslationKey } from "./locales/en";
 import type { TranslationKey } from "./locales/en";
 

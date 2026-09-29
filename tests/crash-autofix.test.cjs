@@ -340,3 +340,219 @@ net.minecraftforge.fml.loading.EarlyLoadingException: Duplicate mods found: jei
   await fsp.rm(tmpRoot, { recursive: true, force: true });
 });
 
+test("detectCrashAutoFix & apply: disable-active-shaderpack", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-shader-"));
+  const instId = "inst-shader";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "optionsiris.txt"), "shaderPack=ComplementaryReimagined.zip\n");
+
+  const instance = { id: instId };
+  const logContent = "Composite shader error: Program link failed during iris pipeline compile";
+  const fix = await detectCrashAutoFix({ instance, logContent, instancesRoot: tmpRoot });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "disable-active-shaderpack");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  const updated = await fsp.readFile(path.join(instDir, "optionsiris.txt"), "utf8");
+  assert.ok(updated.includes("shaderPack=OFF"));
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: repair-opengl-context", async () => {
+  const instance = { id: "inst-gl", settings: { jvmArguments: [] } };
+  const logContent = "GLFW error 65542: The driver does not appear to support OpenGL";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "repair-opengl-context");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.ok(instance.settings.jvmArguments.includes("-Dsun.java2d.opengl=false"));
+});
+
+test("detectCrashAutoFix & apply: apply-wayland-fix", async () => {
+  const instance = { id: "inst-wayland", settings: { jvmArguments: [] } };
+  const logContent = "GLFW error 65543: GLX: Failed to create context on Wayland";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "apply-wayland-fix");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.ok(instance.settings.jvmArguments.includes("-Dorg.lwjgl.glfw.libname=libglfw.so.3"));
+});
+
+test("detectCrashAutoFix & apply: reset-video-options", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-video-"));
+  const instId = "inst-video";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "options.txt"), "fullscreen:true\noverrideWidth:3840\noverrideHeight:2160\nguiScale:4\n");
+
+  const instance = { id: instId };
+  const logContent = "org.lwjgl.LWJGLException: X Error of failed request: BadWindow (invalid Window parameter)";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "reset-video-options");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  const updated = await fsp.readFile(path.join(instDir, "options.txt"), "utf8");
+  assert.ok(updated.includes("fullscreen:false"));
+  assert.ok(updated.includes("overrideWidth:854"));
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: disable-active-resourcepacks", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-rp-"));
+  const instId = "inst-rp";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "options.txt"), "resourcePacks:[\"heavy-512x-pack.zip\"]\n");
+
+  const instance = { id: instId };
+  const logContent = "net.minecraft.client.renderer.texture.TextureAtlasException: Stitching texture atlas failed";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "disable-active-resourcepacks");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  const updated = await fsp.readFile(path.join(instDir, "options.txt"), "utf8");
+  assert.ok(updated.includes("resourcePacks:[]"));
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: upgrade-loader-version", async () => {
+  const instance = { id: "inst-loader", loader: "fabric", loaderVersion: "0.15.11", settings: {} };
+  const logContent = "Mod 'sodium' requires fabricloader >=0.16.5, currently 0.15.11";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "upgrade-loader-version");
+  assert.equal(fix.payload.requiredVersion, "0.16.5");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.equal(instance.settings.pendingLoaderUpgrade, true);
+});
+
+test("detectCrashAutoFix & apply: inject-java-module-flags", async () => {
+  const instance = { id: "inst-flags", settings: { jvmArguments: [] } };
+  const logContent = "java.lang.reflect.InaccessibleObjectException: Unable to make protected final java.lang.Class accessible to module";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "inject-java-module-flags");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.ok(instance.settings.jvmArguments.some((f) => f.includes("--add-opens")));
+});
+
+test("detectCrashAutoFix & apply: enable-forge-entity-removal", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-entity-"));
+  const instId = "inst-entity";
+  const cfgDir = path.join(tmpRoot, instId, "config");
+  await fsp.mkdir(cfgDir, { recursive: true });
+
+  const instance = { id: instId, loader: "forge" };
+  const logContent = "java.lang.NullPointerException: Ticking entity at chunk (12, -4)";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "enable-forge-entity-removal");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  const tomlPath = path.join(cfgDir, "forge-common.toml");
+  assert.ok(fs.existsSync(tomlPath));
+  const content = await fsp.readFile(tomlPath, "utf8");
+  assert.ok(content.includes("removeErroringEntities = true"));
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: quarantine-playerdata", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-player-"));
+  const instId = "inst-player";
+  const pdDir = path.join(tmpRoot, instId, "saves", "New World", "playerdata");
+  await fsp.mkdir(pdDir, { recursive: true });
+  const uuid = "4f2277d3-18e4-4fa0-82d2-5a9e3e3b3333";
+  const playerFile = path.join(pdDir, `${uuid}.dat`);
+  await fsp.writeFile(playerFile, "corrupted data");
+
+  const instance = { id: instId };
+  const logContent = `Failed to load player data: Corrupt NBT tag reading playerdata/${uuid}.dat`;
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "quarantine-playerdata");
+  assert.equal(fix.payload.uuid, uuid);
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(playerFile), false);
+  assert.equal(fs.existsSync(`${playerFile}.bak`), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: kill-zombie-process removes orphan session.lock", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-zombie-"));
+  const instId = "inst-zombie";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  const lockFile = path.join(instDir, "session.lock");
+  await fsp.writeFile(lockFile, "lock");
+
+  const instance = { id: instId, settings: {} };
+  const logContent = "java.nio.file.AccessDeniedException: session.lock is locked by another process";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "kill-zombie-process");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(lockFile), false);
+  assert.equal(instance.settings.zombieProcessDetected, true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: cleanup-temp-install-files", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-temp-"));
+  const instId = "inst-temp";
+  const modsDir = path.join(tmpRoot, instId, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+  await fsp.writeFile(path.join(modsDir, "stale-mod.jar.tmp"), "temp");
+  await fsp.writeFile(path.join(modsDir, "download.scope-download"), "temp");
+  await fsp.writeFile(path.join(modsDir, "valid-mod.jar"), "valid");
+
+  const instance = { id: instId };
+  const logContent = "Error: mod.jar.tmp exists and is incomplete";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "cleanup-temp-install-files");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(path.join(modsDir, "stale-mod.jar.tmp")), false);
+  assert.equal(fs.existsSync(path.join(modsDir, "download.scope-download")), false);
+  assert.equal(fs.existsSync(path.join(modsDir, "valid-mod.jar")), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+

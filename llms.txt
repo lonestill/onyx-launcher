@@ -41,6 +41,18 @@
 - `com.google.gson.JsonSyntaxException: MalformedJsonException` / `ConfigException`: Creates `.bak` backup of damaged config in `config/` and restores default configuration.
 - `UnsupportedClassVersionError: class file version 65.0` (or 61.0): Automatically switches instance to required Eclipse Temurin Java 21/17 runtime.
 - `ZipException: zip END header not found`: Removes corrupted JAR archive and initiates integrity check.
+- `Program link failed` / `Composite shader error` / `ShaderCompileError`: Automatically sets `shaderPack=OFF` in `optionsiris.txt` / `options.txt` to bypass shader compilation failure without deleting user shader packs.
+- `GLFW error 65542: The driver does not appear to support OpenGL`: Injects `-Dsun.java2d.opengl=false` JVM workaround for legacy/multi-GPU OpenGL context failures.
+- `GLFW error 65543: GLX: Failed to create context on Wayland`: Injects `-Dorg.lwjgl.glfw.libname=libglfw.so.3` to force stable X11/Wayland display backend.
+- `org.lwjgl.LWJGLException: BadWindow` / Display initialization failure: Resets `options.txt` to safe default resolution (854x480 windowed) when monitor was unplugged.
+- `TextureAtlasException: Stitching texture atlas failed`: Clears `resourcePacks:[]` in `options.txt` to prevent texture atlas stitch out-of-memory crashes on oversized packs.
+- `Mod requires fabricloader >=0.16.5, currently 0.15.11`: Flags instance for 1-click modloader version upgrade.
+- `UnsatisfiedLinkError: liblwjgl.dylib (have x86_64, need arm64)`: Switches instance on Apple Silicon macOS from Rosetta x86_64 Java to native ARM64 Eclipse Temurin.
+- `InaccessibleObjectException: Unable to make class accessible to module`: Auto-injects required `--add-opens` flags to bypass Java 16+ reflection boundaries.
+- `java.lang.NullPointerException: Ticking entity`: Configures `removeErroringEntities = true` in Forge configuration to automatically despawn corrupt entity ticking loops.
+- `Failed to load player data: Corrupt NBT tag`: Quarantines corrupted `<uuid>.dat` to `<uuid>.dat.bak` allowing clean profile regeneration.
+- `AccessDeniedException: session.lock is locked by another process`: Cleans orphan `session.lock` files and warns of lingering background Java processes.
+
 
 ## Architecture
 

@@ -1,15 +1,25 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   Cpu,
   Download,
   FileCode,
   Files,
+  FolderSync,
   HardDrive,
+  Layers,
   LoaderCircle,
   MemoryStick,
+  Monitor,
+  MonitorOff,
   Package,
+  Palette,
+  RefreshCw,
+  Shield,
   Split,
+  Trash2,
+  Users,
   Wrench,
   X,
   Zap,
@@ -50,11 +60,14 @@ export function AutoFixConfirmModal({
       case "increase-memory":
         return <MemoryStick size={20} className="text-accent" />;
       case "switch-java":
+      case "switch-arm64-java":
         return <Cpu size={20} className="text-accent" />;
       case "install-indium":
       case "install-missing-dependency":
+      case "install-openjfx":
         return <Download size={20} className="text-accent" />;
       case "disable-culprit-mod":
+      case "disable-environment-mismatched-mod":
         return <Package size={20} className="text-accent" />;
       case "remove-duplicate-mod":
         return <Files size={20} className="text-accent" />;
@@ -64,6 +77,34 @@ export function AutoFixConfirmModal({
         return <FileCode size={20} className="text-accent" />;
       case "clean-corrupted-file":
         return <HardDrive size={20} className="text-accent" />;
+      case "disable-active-shaderpack":
+        return <Layers size={20} className="text-accent" />;
+      case "repair-opengl-context":
+        return <Monitor size={20} className="text-accent" />;
+      case "apply-wayland-fix":
+        return <MonitorOff size={20} className="text-accent" />;
+      case "reset-video-options":
+        return <Monitor size={20} className="text-accent" />;
+      case "disable-active-resourcepacks":
+        return <Palette size={20} className="text-accent" />;
+      case "upgrade-loader-version":
+        return <RefreshCw size={20} className="text-accent" />;
+      case "inject-java-module-flags":
+        return <Shield size={20} className="text-accent" />;
+      case "enable-forge-entity-removal":
+        return <Users size={20} className="text-accent" />;
+      case "quarantine-playerdata":
+        return <AlertTriangle size={20} className="text-accent" />;
+      case "restore-world-snapshot":
+        return <FolderSync size={20} className="text-accent" />;
+      case "kill-zombie-process":
+        return <AlertTriangle size={20} className="text-accent" />;
+      case "repair-instance-assets":
+        return <HardDrive size={20} className="text-accent" />;
+      case "cleanup-temp-install-files":
+        return <Trash2 size={20} className="text-accent" />;
+      case "reconcile-modpack-manifest":
+        return <FolderSync size={20} className="text-accent" />;
       case "reset-jvm-args":
       default:
         return <Wrench size={20} className="text-accent" />;

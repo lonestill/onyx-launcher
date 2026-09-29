@@ -83,6 +83,17 @@ Scope Launcher is the first desktop Minecraft launcher engineered with an automa
 | `UnsupportedClassVersionError: class file version 65.0` (or 61.0) | Java runtime mismatch (Java 21 required for 1.20.5+) | Install separate JDK, point custom path | **⚡ 1-Click Java Auto-Switch to Temurin 21/17** |
 | `Unrecognized VM option` / `Could not create Java Virtual Machine` | Invalid or obsolete JVM launch flags | Delete flags line by line | **⚡ 1-Click Reset JVM Flags to Safe Defaults** |
 | `java.util.zip.ZipException: zip END header not found` | Corrupted JAR file download | Search corrupted file in logs | **⚡ 1-Click Remove Corrupted JAR & Repair** |
+| `Program link failed` / `Composite shader error` / `ShaderCompileError` | Shaderpack compilation error on launch | Dig through Iris config or reinstall modpack | **⚡ 1-Click Shaderpack Disabler (`shaderPack=OFF`)** |
+| `GLFW error 65542: The driver does not appear to support OpenGL` | OpenGL driver or multi-GPU context initialization | Reinstall GPU drivers or hunt for mesa DLLs | **⚡ 1-Click OpenGL Workaround (`-Dsun.java2d.opengl=false`)** |
+| `GLFW error 65543: GLX: Failed to create context on Wayland` | Linux Wayland compositor / GLX backend mismatch | Set env vars manually in terminal | **⚡ 1-Click Wayland Display Fix (`libglfw.so.3`)** |
+| `org.lwjgl.LWJGLException: X Error: BadWindow` / Display initialization failure | Stale display resolution from disconnected monitor | Manually hunt down `options.txt` and reset | **⚡ 1-Click Video Options Reset (Safe 854x480 windowed)** |
+| `TextureAtlasException: Stitching texture atlas failed` | Outdated or oversized 512x resource pack OOM | Delete resource packs folder | **⚡ 1-Click Resource Pack Disabler (`resourcePacks:[]`)** |
+| `Mod requires fabricloader >=0.16.5, currently 0.15.11` | Outdated modloader version for newer mod requirements | Recreate instance or edit JSON metadata | **⚡ 1-Click Loader Upgrade (Updates loader version)** |
+| `UnsatisfiedLinkError: liblwjgl.dylib (have x86_64, need arm64)` | macOS Rosetta x86_64 Java on Apple Silicon | Download native ARM64 JDK manually | **⚡ 1-Click Switch to Native ARM64 Temurin Java** |
+| `InaccessibleObjectException: Unable to make class accessible to module` | Java 16+ module encapsulation barrier | Manually add `--add-opens` to launch script | **⚡ 1-Click Java Module Flags Injection (`--add-opens`)** |
+| `java.lang.NullPointerException: Ticking entity` | Erroring entity or tile entity ticking loop | Edit world NBT with external MCEdit | **⚡ 1-Click Forge Entity Error Removal (`forge.cfg`)** |
+| `Failed to load player data: Corrupt NBT tag` / `UUID.dat` corruption | Damaged playerdata file crashing server/singleplayer | Search world folder, delete inventory | **⚡ 1-Click Playerdata Quarantine (`<uuid>.dat.bak`)** |
+| `AccessDeniedException: session.lock is locked by another process` | Lingering background Java zombie process | Open Task Manager, hunt Java PIDs | **⚡ 1-Click Session Lock Cleanup & Process Warning** |
 | Forge mod placed into Fabric instance (or vice-versa) | Modloader mismatch | Read crash log or guess mod origin | **⚡ Deep JAR Inspector identifies loader & disables mod** |
 | MC 1.16/1.19 mod installed into MC 1.20+ instance | Minecraft version mismatch | Find wrong mod version manually | **⚡ Deep JAR Inspector identifies version mismatch** |
 | Unknown multi-mod conflict / elusive launch freeze | Inter-mod interaction or mixin race condition | Spend days manually testing mod subsets | **⚡ Automated Crash Bisect (Binary search test runs)** |

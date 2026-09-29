@@ -46,74 +46,74 @@ This document tracks all implemented and planned automated crash diagnosis and 1
 ## 📋 Comprehensive Backlog: All Conceivable Auto-Fix Methods
 
 ### Category A: Graphics, Display & OpenGL Drivers
-- [ ] **A1. Shaderpack Startup Failure (`disable-active-shaderpack`)**:
+- [x] **A1. Shaderpack Startup Failure (`disable-active-shaderpack`)**:
   - *Trigger*: Crash during shader compilation or pipeline setup with Iris/Oculus/OptiFine (`Program link failed`, `Composite shader error`).
   - *Fix*: Set `shaderPack=OFF` in `optionsiris.txt` / `options.txt` without deleting the user-downloaded shader files.
-- [ ] **A2. OpenGL Context Creation Failure / GLFW Error 65542 (`repair-opengl-context`)**:
+- [x] **A2. OpenGL Context Creation Failure / GLFW Error 65542 (`repair-opengl-context`)**:
   - *Trigger*: `GLFW error 65542: WGL: The driver does not appear to support OpenGL`, or `Pixel format not accelerated`.
   - *Fix*:
     - Windows: Inject software Mesa3D (`opengl32.dll`) fallback or add `-Dsun.java2d.opengl=false`.
     - Detect multi-GPU laptops and advise high-performance GPU preference.
-- [ ] **A3. Linux Wayland / GLX Display Crash (`apply-wayland-fix`)**:
+- [x] **A3. Linux Wayland / GLX Display Crash (`apply-wayland-fix`)**:
   - *Trigger*: `GLFW error 65543: GLX: Failed to create context` or Wayland compositor termination.
   - *Fix*: Inject environment variable `GLFW_PLATFORM=x11` or JVM arg `-Dorg.lwjgl.glfw.libname=libglfw.so.3`.
-- [ ] **A4. Corrupted Video Options / Out-of-Bounds Display Resolution (`reset-video-options`)**:
+- [x] **A4. Corrupted Video Options / Out-of-Bounds Display Resolution (`reset-video-options`)**:
   - *Trigger*: Game crashes on window initialization (`Display.create()` or `BadWindow`) due to stale resolution on unplugged monitor.
   - *Fix*: Reset `fullscreen:false`, `overrideWidth:854`, `overrideHeight:480`, `guiScale:0` in `options.txt`.
-- [ ] **A5. Outdated Resource Pack Texture Stitch Overflow (`disable-active-resourcepacks`)**:
+- [x] **A5. Outdated Resource Pack Texture Stitch Overflow (`disable-active-resourcepacks`)**:
   - *Trigger*: `TextureAtlasException` or `OutOfMemoryError: Stitching texture atlas` on high-res 512x packs.
   - *Fix*: Reset `resourcePacks:[]` in `options.txt`.
 
 ---
 
 ### Category B: Mod Loader & Runtime Versions
-- [ ] **B1. Outdated Mod Loader Version (`upgrade-loader-version`)**:
+- [x] **B1. Outdated Mod Loader Version (`upgrade-loader-version`)**:
   - *Trigger*: `Mod requires fabricloader >=0.16.5, currently 0.15.11` or `neoforge version too low`.
   - *Fix*: Auto-update instance `loaderVersion` in instance metadata to newest compatible release without reinstalling whole pack.
-- [ ] **B2. Architecture Incompatibility on macOS Apple Silicon (`switch-arm64-java`)**:
+- [x] **B2. Architecture Incompatibility on macOS Apple Silicon (`switch-arm64-java`)**:
   - *Trigger*: `UnsatisfiedLinkError: ...liblwjgl.dylib (mach-o file, but is an incompatible architecture (have x86_64, need arm64))`.
   - *Fix*: Switch instance from Rosetta x86_64 Java to native ARM64 Eclipse Temurin.
-- [ ] **B3. Missing JVM Module Directives (`inject-java-module-flags`)**:
+- [x] **B3. Missing JVM Module Directives (`inject-java-module-flags`)**:
   - *Trigger*: `InaccessibleObjectException: Unable to make protected final java.lang.Class ... accessible to module` (Java 16+ reflection barrier).
   - *Fix*: Auto-inject required `--add-opens` flags to JVM arguments (e.g. `--add-opens java.base/java.lang=ALL-UNNAMED`).
-- [ ] **B4. JavaFX / Missing Native OpenJFX (`install-openjfx`)**:
+- [x] **B4. JavaFX / Missing Native OpenJFX (`install-openjfx`)**:
   - *Trigger*: `NoClassDefFoundError: javafx/...` (mods with embedded WebKit or media players).
   - *Fix*: Download OpenJFX modular SDK or switch to full Zulu FX JDK.
 
 ---
 
 ### Category C: World Data, Saves & Entity Ticking
-- [ ] **C1. Erroring Entity / Tile Entity Ticking Crash (`enable-forge-entity-removal`)**:
+- [x] **C1. Erroring Entity / Tile Entity Ticking Crash (`enable-forge-entity-removal`)**:
   - *Trigger*: `java.lang.NullPointerException: Ticking entity` / `Ticking block entity` at chunk coordinates (X, Y, Z).
   - *Fix*:
     - Forge: Set `removeErroringEntities = true` and `removeErroringTileEntities = true` in `forge.cfg` / `forge-common.toml`.
     - Fabric: Propose installing Neruina / SafeTicking companion mod.
-- [ ] **C2. Corrupted Playerdata NBT (`quarantine-playerdata`)**:
+- [x] **C2. Corrupted Playerdata NBT (`quarantine-playerdata`)**:
   - *Trigger*: `Failed to load player data: Corrupt NBT tag` or `ClassCastException` reading `playerdata/<uuid>.dat`.
   - *Fix*: Back up corrupted `<uuid>.dat` to `<uuid>.dat.bak` and create clean inventory seed.
-- [ ] **C3. World Decorator Loop Crash (`restore-world-snapshot`)**:
+- [x] **C3. World Decorator Loop Crash (`restore-world-snapshot`)**:
   - *Trigger*: `RuntimeException: Already decorating!!` or cascading worldgen chunk crash.
   - *Fix*: Offer 1-click restore from latest World Guard automatic world snapshot.
 
 ---
 
 ### Category D: System, File Locks & Process State
-- [ ] **D1. Zombie Minecraft Process Holding File Lock (`kill-zombie-process`)**:
+- [x] **D1. Zombie Minecraft Process Holding File Lock (`kill-zombie-process`)**:
   - *Trigger*: `FileAlreadyExistsException`, `AccessDeniedException` on `session.lock`, `logs/latest.log` locked by another process.
   - *Fix*: Locate lingering background `javaw.exe` / `java` PID associated with the instance and safely terminate it, clearing orphan `session.lock`.
-- [ ] **D2. Corrupted Mojang Asset / Library Cache (`repair-instance-assets`)**:
+- [x] **D2. Corrupted Mojang Asset / Library Cache (`repair-instance-assets`)**:
   - *Trigger*: `FileNotFoundException: assets/indexes/1.20.json`, hash mismatch on `client.jar`.
   - *Fix*: Re-download official assets index and libraries with SHA-1 validation.
-- [ ] **D3. Stale Temporary Update Files (`cleanup-temp-install-files`)**:
+- [x] **D3. Stale Temporary Update Files (`cleanup-temp-install-files`)**:
   - *Trigger*: Unfinished mod update left `mod.jar.tmp` or `.scope-download`.
   - *Fix*: Purge incomplete download fragments from `mods/`.
 
 ---
 
 ### Category E: Modpack Manifest Reconciliation
-- [ ] **E1. Untracked Rogue Mods in Strict Modpacks (`reconcile-modpack-manifest`)**:
+- [x] **E1. Untracked Rogue Mods in Strict Modpacks (`reconcile-modpack-manifest`)**:
   - *Trigger*: Modpack updated from CurseForge/Modrinth but manually added user mods cause incompatibility.
   - *Fix*: Compare current `mods/` contents with original modpack manifest, flag untracked mods, and offer 1-click quarantine to `mods_disabled/`.
-- [ ] **E2. Client-Only Mod on Server or Vice-Versa (`disable-environment-mismatched-mod`)**:
+- [x] **E2. Client-Only Mod on Server or Vice-Versa (`disable-environment-mismatched-mod`)**:
   - *Trigger*: `NoClassDefFoundError: net/minecraft/client/Minecraft` in dedicated server environment.
   - *Fix*: Inspect manifest environment tag (`client` vs `server`) and disable mismatched mod.

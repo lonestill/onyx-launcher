@@ -146,7 +146,24 @@ export type AutoFixType =
   | "resolve-mod-conflict"
   | "reset-corrupted-config"
   | "reset-jvm-args"
-  | "clean-corrupted-file";
+  | "clean-corrupted-file"
+  | "disable-active-shaderpack"
+  | "repair-opengl-context"
+  | "apply-wayland-fix"
+  | "reset-video-options"
+  | "disable-active-resourcepacks"
+  | "upgrade-loader-version"
+  | "switch-arm64-java"
+  | "inject-java-module-flags"
+  | "install-openjfx"
+  | "enable-forge-entity-removal"
+  | "quarantine-playerdata"
+  | "restore-world-snapshot"
+  | "kill-zombie-process"
+  | "repair-instance-assets"
+  | "cleanup-temp-install-files"
+  | "reconcile-modpack-manifest"
+  | "disable-environment-mismatched-mod";
 
 export interface CrashAutoFix {
   type: AutoFixType;
@@ -171,6 +188,23 @@ export interface CrashAutoFix {
     conflictReason?: string;
     configFile?: string;
     fullPath?: string;
+    shaderpack?: string;
+    jvmFlag?: string;
+    optionsFile?: string;
+    loader?: string;
+    requiredVersion?: string;
+    currentVersion?: string;
+    targetArch?: string;
+    flagCount?: number;
+    requirement?: string;
+    uuid?: string;
+    worldgenIssue?: boolean;
+    lockFile?: string;
+    repair?: boolean;
+    cleanedCount?: number;
+    advisory?: boolean;
+    environment?: string;
+    mod?: string;
   };
 }
 
