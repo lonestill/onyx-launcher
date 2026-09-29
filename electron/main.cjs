@@ -3149,8 +3149,8 @@ function registerIpc() {
       }));
       const logFileName =
         existingCount > 0
-          ? `onyx-client-${existingCount + 1}.log`
-          : "onyx-latest.log";
+          ? `scope-client-${existingCount + 1}.log`
+          : "scope-latest.log";
       const launch = await minecraftService.buildLaunch({
         instance,
         settings: {

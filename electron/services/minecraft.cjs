@@ -929,6 +929,9 @@ class MinecraftService {
   }) {
     const versionId = instance.resolvedVersionId || instance.version;
     const version = await this.loadResolvedVersion(versionId);
+    const requiredJava =
+      version.javaVersion?.majorVersion ||
+      this.javaForVersion(instance.version);
     const gameDirectory = this.instanceDirectory(instance.id);
     const nativesDirectory = path.join(
       this.sharedRoot,
@@ -1119,9 +1122,6 @@ class MinecraftService {
     logStream.write(
       `\n[${new Date().toISOString()}] Scope is launching ${versionId}\n`,
     );
-    const requiredJava =
-      version.javaVersion?.majorVersion ||
-      this.javaForVersion(instance.version);
     const javaPath = await this.resolveJavaForLaunch(
       requiredJava,
       settings,

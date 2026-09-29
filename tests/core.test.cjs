@@ -1058,6 +1058,38 @@ test("Relaunching Vanilla preserves resolvedVersionId and does not require reins
   assert.equal(legacy.status, "ready");
 });
 
+test("buildLaunch resolves requiredJava without TDZ and respects extraJvmArguments", async () => {
+  const service = new MinecraftService({
+    sharedRoot: path.join(temporaryRoot, "launch-shared"),
+    instancesRoot: path.join(temporaryRoot, "launch-instances"),
+    javaService: {
+      async resolve() {
+        return process.execPath;
+      },
+    },
+  });
+  service.loadResolvedVersion = async (id) => ({
+    id,
+    mainClass: "net.minecraft.client.main.Main",
+    arguments: { game: [] },
+    libraries: [],
+    javaVersion: { majorVersion: 8 },
+  });
+  service.resolveJavaForLaunch = async () => process.execPath;
+
+  const launch = await service.buildLaunch({
+    instance: { id: "inst-8", version: "1.12.2" },
+    settings: { javaMajor: 8 },
+    account: { name: "Player", uuid: "000", token: "tok" },
+    launchWrapper: { executable: process.execPath, argsBeforeExecutable: ["-e", "process.exit(0)"] },
+    extraJvmArguments: ["-javaagent:test.jar", "--add-opens=java.base/java.lang=ALL-UNNAMED"],
+  });
+
+  assert.ok(launch.args.includes("-javaagent:test.jar"));
+  assert.ok(!launch.args.includes("--add-opens=java.base/java.lang=ALL-UNNAMED"));
+  launch.child.kill();
+});
+
 test("Preflight blocks only unsafe conditions and flags repairs", () => {
   assert.equal(
     reportStatus(
