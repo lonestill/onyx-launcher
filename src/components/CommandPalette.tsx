@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   Settings,
+  Users2,
   X,
 } from "lucide-react";
 import { useI18n, type TranslationKey } from "../i18n";
@@ -24,6 +25,7 @@ interface CommandPaletteProps {
   onNavigate: (route: RouteId) => void;
   onPlay: (instance: GameInstance) => void;
   onCreate: () => void;
+  onJoinParty?: () => void;
 }
 
 const commands: Array<{
@@ -66,6 +68,7 @@ export function CommandPalette({
   onNavigate,
   onPlay,
   onCreate,
+  onJoinParty,
 }: CommandPaletteProps) {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
@@ -107,6 +110,18 @@ export function CommandPalette({
 
   const allActions = useMemo(
     () => [
+      ...(onJoinParty
+        ? [
+            {
+              id: "party",
+              title: t("command.joinParty"),
+              hint: t("command.joinPartyHint"),
+              icon: Users2,
+              keywords: "party room join code connect multiplayer пати комната код друг",
+              run: onJoinParty,
+            },
+          ]
+        : []),
       {
         id: "create",
         title: t("command.create"),
@@ -126,7 +141,7 @@ export function CommandPalette({
         },
       },
     ],
-    [t, onCreate],
+    [t, onCreate, onJoinParty],
   );
 
   const matchingActions = useMemo(() => {

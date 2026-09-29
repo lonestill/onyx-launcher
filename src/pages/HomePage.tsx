@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   Sparkles,
   Square,
+  Users2,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -36,6 +37,7 @@ interface HomePageProps {
   onCreate: () => void;
   onConfigure: (instance: GameInstance) => void;
   onApplyAutoFix?: (instance: GameInstance, fix: CrashAutoFix) => void;
+  onJoinParty?: (code?: string) => void;
 }
 
 export function HomePage({
@@ -48,6 +50,7 @@ export function HomePage({
   onCreate,
   onConfigure,
   onApplyAutoFix,
+  onJoinParty,
 }: HomePageProps) {
   const { locale, t } = useI18n();
   const hour = new Date().getHours();
@@ -64,6 +67,13 @@ export function HomePage({
   const [quickServer, setQuickServer] = useState("");
   const [pingResult, setPingResult] = useState<MinecraftServerStatus | null>(null);
   const [pinging, setPinging] = useState(false);
+  const [partyCode, setPartyCode] = useState("");
+
+  const handleJoinParty = () => {
+    const trimmed = partyCode.trim();
+    if (!trimmed) return;
+    onJoinParty?.(trimmed);
+  };
 
   const activeInstance =
     instances.find((instance) => instance.id === selectedInstanceId) ??
@@ -109,19 +119,30 @@ export function HomePage({
   };
 
   const handleJoinServer = async () => {
-    if (!quickServer.trim() || !activeInstance) return;
+    const trimmed = quickServer.trim();
+    if (!trimmed) return;
+    if (
+      trimmed.startsWith("scope://") ||
+      trimmed.startsWith("onyx://") ||
+      trimmed.includes("/party/") ||
+      /\b[A-Za-z0-9]{3}[- ][A-Za-z0-9]{3}\b/.test(trimmed)
+    ) {
+      onJoinParty?.(trimmed);
+      return;
+    }
+    if (!activeInstance) return;
     try {
       await window.onyx.state.updateInstance(activeInstance.id, {
         settings: {
           ...activeInstance.settings,
-          serverAddress: quickServer.trim(),
+          serverAddress: trimmed,
         },
       });
       const updated: GameInstance = {
         ...activeInstance,
         settings: {
           ...activeInstance.settings,
-          serverAddress: quickServer.trim(),
+          serverAddress: trimmed,
         },
       };
       onPlay(updated);
@@ -397,7 +418,46 @@ export function HomePage({
         </div>
       </section>
 
-      <section className="ops-grid ops-grid--single">
+      <section className="ops-grid ops-grid--duo">
+        <div className="ops-card ops-card--party">
+          <div className="ops-card__head">
+            <div className="ops-card__icon">
+              <Users2 size={16} />
+            </div>
+            <div className="ops-card__titles">
+              <strong>{t("home.partyCard.title")}</strong>
+              <span>{t("home.partyCard.subtitle")}</span>
+            </div>
+          </div>
+          <div className="ops-card__body">
+            <div className="quick-join-form">
+              <div className="quick-join-input-shell">
+                <Users2 size={14} />
+                <input
+                  type="text"
+                  placeholder={t("home.partyCard.placeholder")}
+                  value={partyCode}
+                  onChange={(event) => setPartyCode(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleJoinParty();
+                  }}
+                  style={{ fontFamily: "var(--font-mono)", textTransform: "uppercase" }}
+                />
+              </div>
+            </div>
+            <div className="ops-card__footer">
+              <button
+                className="button button--secondary button--full"
+                onClick={handleJoinParty}
+                disabled={!partyCode.trim()}
+              >
+                <ArrowRight size={13} />
+                {t("home.partyCard.connect")}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="ops-card ops-card--server">
           <div className="ops-card__head">
             <div className="ops-card__icon">

@@ -174,3 +174,34 @@ test("party checkE4mcStatus: correctly determines e4mc installation status", asy
   }
 });
 
+test("party extractRoomCode: accurately parses code from URLs, protocols, and text", () => {
+  function extractRoomCode(input) {
+    if (!input) return "";
+    const trimmed = String(input).trim();
+    const urlMatch =
+      trimmed.match(/(?:scope|onyx):\/\/(?:party\/)?([a-zA-Z0-9_-]+)/i) ||
+      trimmed.match(/\/party\/([a-zA-Z0-9_-]+)/i);
+    if (urlMatch) return urlMatch[1].toUpperCase();
+
+    const codeMatch = trimmed.match(/\b([A-Za-z0-9]{3})[- ]([A-Za-z0-9]{3})\b/);
+    if (codeMatch) return `${codeMatch[1]}-${codeMatch[2]}`.toUpperCase();
+
+    const clean = trimmed
+      .replace(/^(?:код|code|party|комната)[\s:]+/i, "")
+      .replace(/^[^a-zA-Z0-9]+/, "")
+      .replace(/[^a-zA-Z0-9_-].*$/, "");
+    return clean.toUpperCase();
+  }
+
+  assert.equal(extractRoomCode("scope://party/COG-957"), "COG-957");
+  assert.equal(extractRoomCode("onyx://party/COG-957"), "COG-957");
+  assert.equal(extractRoomCode("scope://COG-957"), "COG-957");
+  assert.equal(extractRoomCode("https://scope-hub.vercel.app/party/COG-957"), "COG-957");
+  assert.equal(extractRoomCode("https://scope-hub.vercel.app/party/cog-957?ref=invite"), "COG-957");
+  assert.equal(extractRoomCode("COG-957"), "COG-957");
+  assert.equal(extractRoomCode("cog-957"), "COG-957");
+  assert.equal(extractRoomCode("COG 957"), "COG-957");
+  assert.equal(extractRoomCode("Код: COG-957"), "COG-957");
+  assert.equal(extractRoomCode("Залетай в пати: COG-957 ждем"), "COG-957");
+});
+

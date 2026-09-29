@@ -287,12 +287,22 @@ export function InstancePage({
 
   const handlePartyCopyCode = useCallback(() => {
     if (!partyRoom) return;
-    const text = `scope://party/${partyRoom.code}`;
+    const text = partyRoom.code;
     void navigator.clipboard.writeText(text).then(() => {
       setPartyCopied(true);
+      onNotify("success", t("party.copiedCode", { code: partyRoom.code }), "");
       setTimeout(() => setPartyCopied(false), 2000);
     });
-  }, [partyRoom]);
+  }, [partyRoom, onNotify, t]);
+
+  const handlePartyCopyInvite = useCallback(() => {
+    if (!partyRoom) return;
+    const webUrl = `https://scope-hub.vercel.app/party/${partyRoom.code}`;
+    const text = `${t("party.section.code")}: ${partyRoom.code} | scope://party/${partyRoom.code} (${webUrl})`;
+    void navigator.clipboard.writeText(text).then(() => {
+      onNotify("success", t("party.copyInviteSuccess"), "");
+    });
+  }, [partyRoom, onNotify, t]);
 
   // TTL countdown for party room display
   const [partyTimeLeft, setPartyTimeLeft] = useState("");
@@ -1546,9 +1556,18 @@ export function InstancePage({
                     <button
                       className="button button--mini button--secondary"
                       onClick={handlePartyCopyCode}
+                      title={t("party.section.code")}
                     >
                       {partyCopied ? <Check size={14} /> : <ClipboardCopy size={14} />}
                       {partyCopied ? t("party.section.copied") : t("party.section.copy")}
+                    </button>
+                    <button
+                      className="button button--mini button--secondary"
+                      onClick={handlePartyCopyInvite}
+                      title={t("party.copyInvite")}
+                    >
+                      <Share2 size={14} />
+                      {t("party.copyInvite")}
                     </button>
                     <button
                       className="button button--mini button--danger-quiet"

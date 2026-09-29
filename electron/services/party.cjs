@@ -486,6 +486,10 @@ class RoomSession {
         proxyServer.listen(0, "127.0.0.1", () => {
           this.guestProxyPort = proxyServer.address().port;
           this._guestProxyServer = proxyServer;
+          if (this.roomState) {
+            this.roomState = { ...this.roomState, guestProxyPort: this.guestProxyPort };
+          }
+          this.onRoomUpdate?.(this.roomState);
           resolve();
         });
         proxyServer.on("error", reject);
@@ -802,6 +806,10 @@ async function joinRoom({ code, displayName, instanceId, instanceDirectory, hubU
   _activeSession.instanceId = instanceId || null;
   _activeSession.instanceDirectory = instanceDirectory || null;
 
+  if (data.tunnelHost && data.tunnelPort) {
+    await _activeSession.ensureGuestProxyAndBeacon(data.tunnelHost, data.tunnelPort);
+  }
+
   savePartySession({
     code,
     peerId: currentPeerId,
@@ -812,7 +820,7 @@ async function joinRoom({ code, displayName, instanceId, instanceDirectory, hubU
     expiresAt: data.expiresAt,
   });
 
-  return data;
+  return getRoomState() || data;
 }
 
 /** Start polling loops for the active session */

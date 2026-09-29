@@ -1396,5 +1396,17 @@ export const ru: Record<TranslationKey, string> = {
   "crash.autofix.disableEarlyDisplay.desc": "Добавляет -Dfml.earlydisplay=false для устранения крашей GLFW/OpenGL под Wayland и NVIDIA.",
   "crash.autofix.repairServersDat.title": "Восстановить список серверов",
   "crash.autofix.repairServersDat.desc": "Восстанавливает servers.dat из резервной копии servers.dat_old или удаляет битый 0-байтовый файл.",
+  "nav.party": "Комнаты",
+  "command.joinParty": "Войти в комнату друга",
+  "command.joinPartyHint": "Ввести код комнаты для совместной игры без белого IP",
+  "home.partyCard.title": "Комната друга",
+  "home.partyCard.subtitle": "Вход по коду без проброса портов",
+  "home.partyCard.placeholder": "ARC-451 или ссылка...",
+  "home.partyCard.connect": "Войти в комнату",
+  "party.copyInvite": "Скопировать приглашение",
+  "party.copyInviteSuccess": "Приглашение скопировано в буфер",
+  "party.copiedCode": "Код {code} скопирован!",
+  "party.joinModal.settingUpTunnel": "Подключение к туннелю хоста...",
+  "party.joinModal.waitingHostWorld": "Ожидание открытия мира хостом (Esc → Открыть для сети)...",
 };
 

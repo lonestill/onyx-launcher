@@ -1394,6 +1394,18 @@ export const en = {
   "crash.autofix.disableEarlyDisplay.desc": "Adds -Dfml.earlydisplay=false to resolve GLFW/OpenGL issues under Wayland and hybrid graphics.",
   "crash.autofix.repairServersDat.title": "Restore Server List",
   "crash.autofix.repairServersDat.desc": "Restores servers.dat from servers.dat_old backup or resets damaged 0-byte file.",
+  "nav.party": "Rooms",
+  "command.joinParty": "Join Friend's Room",
+  "command.joinPartyHint": "Enter a room code to join multiplayer without port forwarding",
+  "home.partyCard.title": "Friend's Room",
+  "home.partyCard.subtitle": "Join via code without port forwarding",
+  "home.partyCard.placeholder": "ARC-451 or link...",
+  "home.partyCard.connect": "Join Room",
+  "party.copyInvite": "Copy Invite",
+  "party.copyInviteSuccess": "Invite copied to clipboard",
+  "party.copiedCode": "Room code {code} copied!",
+  "party.joinModal.settingUpTunnel": "Connecting to host tunnel...",
+  "party.joinModal.waitingHostWorld": "Waiting for host to open world (Esc -> Open to LAN)...",
 } as const;
 
 export type TranslationKey = keyof typeof en;

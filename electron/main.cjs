@@ -2341,6 +2341,11 @@ function registerIpc() {
     pendingDeepLinkUrl = null;
     return link;
   });
+  ipcMain.handle("state:get-pending-deep-link", () => {
+    const link = pendingDeepLinkUrl;
+    pendingDeepLinkUrl = null;
+    return link;
+  });
 
   ipcMain.handle("instance:skin-loader-status", async (_event, id) => {
     const instance = findInstance(id);
@@ -3567,10 +3572,11 @@ let pendingDeepLinkUrl = null;
 function handleDeepLinkUrl(url) {
   if (!url || typeof url !== "string") return;
   const partyMatch =
-    url.match(/^(?:scope|onyx):\/\/party\/([a-zA-Z0-9_-]+)/i) ||
-    url.match(/\/party\/([a-zA-Z0-9_-]+)/i);
+    url.match(/^(?:scope|onyx):\/\/(?:party\/)?([a-zA-Z0-9_-]+)/i) ||
+    url.match(/\/party\/([a-zA-Z0-9_-]+)/i) ||
+    url.match(/\b([A-Za-z0-9]{3})[- ]([A-Za-z0-9]{3})\b/);
   if (partyMatch) {
-    const code = partyMatch[1].toUpperCase();
+    const code = (partyMatch[2] ? `${partyMatch[1]}-${partyMatch[2]}` : partyMatch[1]).toUpperCase();
     if (!mainWindow || !mainWindow.webContents) {
       pendingDeepLinkUrl = url;
       return;
@@ -3596,7 +3602,12 @@ if (!gotLock) {
   app.on("second-instance", (_event, commandLine) => {
     void restoreLauncherWindow();
     const deepUrl = (commandLine || []).find(
-      (arg) => typeof arg === "string" && (arg.startsWith("scope://") || arg.startsWith("onyx://")),
+      (arg) =>
+        typeof arg === "string" &&
+        (arg.startsWith("scope://") ||
+          arg.startsWith("onyx://") ||
+          arg.includes("/party/") ||
+          /\b[A-Za-z0-9]{3}[- ][A-Za-z0-9]{3}\b/.test(arg)),
     );
     if (deepUrl) {
       handleDeepLinkUrl(deepUrl);
@@ -3793,11 +3804,12 @@ ipcMain.handle("party:create", async (_event, { displayName, instanceId } = {}) 
 
 function wirePartySession() {
   partySvc.startSession({
-    onRoomUpdate: (roomState) => {
-      mainWindow?.webContents?.send("party:room-update", roomState);
+    onRoomUpdate: async (roomState) => {
       if (!partySvc.isHost && roomState?.tunnelHost && roomState?.tunnelPort) {
-        void partySvc.ensureGuestProxyAndBeacon(roomState.tunnelHost, roomState.tunnelPort);
+        await partySvc.ensureGuestProxyAndBeacon(roomState.tunnelHost, roomState.tunnelPort);
       }
+      const updated = partySvc.getRoomState() || roomState;
+      mainWindow?.webContents?.send("party:room-update", updated);
     },
     onSignal: (signal) => {
       mainWindow?.webContents?.send("party:signal", signal);
@@ -3834,7 +3846,7 @@ ipcMain.handle("party:join", async (_event, { code, displayName, instanceId } = 
 
   wirePartySession();
 
-  return roomState;
+  return partySvc.getRoomState() || roomState;
 });
 
 /**

@@ -1265,6 +1265,7 @@ export interface OnyxBridge {
       guestProxyPort?: number | null;
       room: PartyRoomState | null;
     }>;
+    getPendingDeepLink?(): Promise<string | null>;
     updateManifest(opts: { instanceId: string }): Promise<PartyManifest>;
     diffManifest(opts: { instanceId: string }): Promise<PartyDiffResult>;
     setReady(opts?: { ready?: boolean }): Promise<{ success: boolean }>;

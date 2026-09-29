@@ -24,12 +24,22 @@ interface JoinPartyModalProps {
   onNotify: (tone: "success" | "warning" | "info", title: string, message: string) => void;
 }
 
-function extractRoomCode(input: string): string {
+export function extractRoomCode(input: string): string {
   if (!input) return "";
   const trimmed = input.trim();
-  const match = trimmed.match(/^(?:scope|onyx):\/\/party\/([a-zA-Z0-9_-]+)/i) || trimmed.match(/\/party\/([a-zA-Z0-9_-]+)/i);
-  if (match) return match[1].toUpperCase();
-  return trimmed.toUpperCase();
+  const urlMatch =
+    trimmed.match(/(?:scope|onyx):\/\/(?:party\/)?([a-zA-Z0-9_-]+)/i) ||
+    trimmed.match(/\/party\/([a-zA-Z0-9_-]+)/i);
+  if (urlMatch) return urlMatch[1].toUpperCase();
+
+  const codeMatch = trimmed.match(/\b([A-Za-z0-9]{3})[- ]([A-Za-z0-9]{3})\b/);
+  if (codeMatch) return `${codeMatch[1]}-${codeMatch[2]}`.toUpperCase();
+
+  const clean = trimmed
+    .replace(/^(?:код|code|party|комната)[\s:]+/i, "")
+    .replace(/^[^a-zA-Z0-9]+/, "")
+    .replace(/[^a-zA-Z0-9_-].*$/, "");
+  return clean.toUpperCase();
 }
 
 export function JoinPartyModal({
@@ -58,20 +68,6 @@ export function JoinPartyModal({
     }
   }, [instances, selectedInstanceId]);
 
-  useEffect(() => {
-    if (initialCode) {
-      const code = extractRoomCode(initialCode);
-      setInputVal(code);
-    } else {
-      setInputVal("");
-      setRoom(null);
-      setDiff(null);
-      setError(null);
-      setSyncing(false);
-      setSyncProgress(null);
-    }
-  }, [initialCode, open]);
-
   const selectedInstance = useMemo(
     () => instances.find((i) => i.id === selectedInstanceId) || null,
     [instances, selectedInstanceId]
@@ -97,8 +93,9 @@ export function JoinPartyModal({
     }
   }, [room, selectedInstanceId]);
 
-  const handleJoin = useCallback(async () => {
-    const code = extractRoomCode(inputVal);
+  const handleJoin = useCallback(async (targetCode?: string) => {
+    const raw = typeof targetCode === "string" ? targetCode : inputVal;
+    const code = extractRoomCode(raw);
     if (!code) {
       setError(t("party.joinModal.error.enterCode"));
       return;
@@ -140,6 +137,23 @@ export function JoinPartyModal({
       setJoining(false);
     }
   }, [inputVal, selectedInstanceId, instances, t]);
+
+  useEffect(() => {
+    if (initialCode) {
+      const code = extractRoomCode(initialCode);
+      setInputVal(code);
+      if (code) {
+        void handleJoin(code);
+      }
+    } else {
+      setInputVal("");
+      setRoom(null);
+      setDiff(null);
+      setError(null);
+      setSyncing(false);
+      setSyncProgress(null);
+    }
+  }, [initialCode, open, handleJoin]);
 
   const handleSyncMods = useCallback(async () => {
     if (!selectedInstance || !diff) return;
@@ -198,9 +212,19 @@ export function JoinPartyModal({
     }
   }, [selectedInstance, diff, onNotify, t]);
 
-  const handleLaunch = () => {
+  const handleLaunch = async () => {
     if (!selectedInstance || !room) return;
-    onJoinSuccess(selectedInstance, room);
+    let effectiveRoom = room;
+    if (!effectiveRoom.guestProxyPort) {
+      const status = await window.onyx.party.status().catch(() => null);
+      if (status?.guestProxyPort) {
+        effectiveRoom = {
+          ...effectiveRoom,
+          guestProxyPort: status.guestProxyPort,
+        };
+      }
+    }
+    onJoinSuccess(selectedInstance, effectiveRoom);
     onClose();
   };
 
@@ -442,7 +466,7 @@ export function JoinPartyModal({
                     </div>
                   )}
 
-                  {room.guestProxyPort && (
+                  {room.guestProxyPort ? (
                     <div
                       style={{
                         display: "flex",
@@ -456,6 +480,38 @@ export function JoinPartyModal({
                       <CheckCircle2 size={13} color="#a3e635" />
                       <span>
                         {t("party.joinModal.directConnect", { port: room.guestProxyPort })}
+                      </span>
+                    </div>
+                  ) : room.tunnelHost && room.tunnelPort ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: "var(--text-soft)",
+                        fontSize: "11px",
+                        marginTop: 2,
+                      }}
+                    >
+                      <Loader2 size={13} className="spin" color="#a3e635" />
+                      <span>
+                        {t("party.joinModal.settingUpTunnel")}
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        color: "var(--text-soft)",
+                        fontSize: "11px",
+                        marginTop: 2,
+                      }}
+                    >
+                      <AlertCircle size={13} color="#eab308" />
+                      <span>
+                        {t("party.joinModal.waitingHostWorld")}
                       </span>
                     </div>
                   )}

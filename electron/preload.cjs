@@ -284,6 +284,7 @@ const api = {
     create: (opts) => ipcRenderer.invoke("party:create", opts),
     join: (opts) => ipcRenderer.invoke("party:join", opts),
     status: () => ipcRenderer.invoke("party:status"),
+    getPendingDeepLink: () => ipcRenderer.invoke("state:get-pending-deep-link"),
     updateManifest: (opts) => ipcRenderer.invoke("party:update-manifest", opts),
     diffManifest: (opts) => ipcRenderer.invoke("party:diff-manifest", opts),
     setReady: (opts) => ipcRenderer.invoke("party:set-ready", opts),

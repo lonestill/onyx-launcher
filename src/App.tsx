@@ -185,12 +185,15 @@ export default function App() {
       }
     });
 
-    void window.onyx?.state?.getPendingDeepLink?.().then((pending) => {
+    void (window.onyx?.state?.getPendingDeepLink?.() ?? window.onyx?.party?.getPendingDeepLink?.())?.then((pending) => {
       if (pending) {
         if (
           pending.includes("party/") ||
           pending.startsWith("scope://party/") ||
-          pending.startsWith("onyx://party/")
+          pending.startsWith("onyx://party/") ||
+          pending.startsWith("scope://") ||
+          pending.startsWith("onyx://") ||
+          /\b[A-Za-z0-9]{3}[- ][A-Za-z0-9]{3}\b/.test(pending)
         ) {
           setJoinPartyInitialCode(pending);
           setJoinPartyOpen(true);
@@ -1385,6 +1388,10 @@ export default function App() {
             onCreate={() => setCreateOpen(true)}
             onConfigure={setSettingsInstance}
             onApplyAutoFix={requestAutoFix}
+            onJoinParty={(code) => {
+              setJoinPartyInitialCode(code || null);
+              setJoinPartyOpen(true);
+            }}
           />
         );
     }
@@ -1416,6 +1423,10 @@ export default function App() {
           downloads={state.downloads}
           onNavigate={setRoute}
           onAccount={() => setAccountOpen(true)}
+          onJoinParty={() => {
+            setJoinPartyInitialCode(null);
+            setJoinPartyOpen(true);
+          }}
         />
         <main className="content">
           <Suspense
@@ -1456,6 +1467,10 @@ export default function App() {
         onNavigate={setRoute}
         onPlay={(instance) => void play(instance)}
         onCreate={() => setCreateOpen(true)}
+        onJoinParty={() => {
+          setJoinPartyInitialCode(null);
+          setJoinPartyOpen(true);
+        }}
       />
       <InstanceMenu
         instance={instanceMenu}
@@ -1515,10 +1530,17 @@ export default function App() {
           setJoinPartyOpen(false);
           setJoinPartyInitialCode(null);
         }}
-        onJoinSuccess={(inst, room) => {
+        onJoinSuccess={async (inst, room) => {
           setSelectedInstanceId(inst.id);
           setRoute("instance");
-          const directAddress = room?.guestProxyPort ? `127.0.0.1:${room.guestProxyPort}` : undefined;
+          let proxyPort = room?.guestProxyPort;
+          if (!proxyPort) {
+            const status = await window.onyx.party?.status?.().catch(() => null);
+            if (status?.guestProxyPort) {
+              proxyPort = status.guestProxyPort;
+            }
+          }
+          const directAddress = proxyPort ? `127.0.0.1:${proxyPort}` : undefined;
           void play(inst, directAddress ? { serverAddress: directAddress } : undefined);
         }}
         onNotify={(tone, title, message) => pushToast(tone, title, message, 6000)}

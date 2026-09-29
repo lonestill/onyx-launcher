@@ -5,6 +5,7 @@ import {
   ExternalLink,
   MessageSquareHeart,
   Settings,
+  Users2,
 } from "lucide-react";
 import { DiscordIcon } from "./DiscordIcon";
 import { navigation } from "../data";
@@ -17,6 +18,7 @@ interface SidebarProps {
   downloads: DownloadTask[];
   onNavigate: (route: RouteId) => void;
   onAccount: () => void;
+  onJoinParty?: () => void;
 }
 
 export function Sidebar({
@@ -25,6 +27,7 @@ export function Sidebar({
   downloads,
   onNavigate,
   onAccount,
+  onJoinParty,
 }: SidebarProps) {
   const { t } = useI18n();
   const activeDownloads = downloads.filter(
@@ -62,6 +65,16 @@ export function Sidebar({
             </button>
           );
         })}
+        {onJoinParty && (
+          <button
+            className="nav-item nav-item--party"
+            onClick={onJoinParty}
+            title={t("library.joinPartyTitle")}
+          >
+            <Users2 size={18} />
+            <span>{t("nav.party")}</span>
+          </button>
+        )}
       </div>
 
       <div className="sidebar__footer">
