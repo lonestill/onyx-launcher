@@ -73,7 +73,7 @@ function reportStatus(checks, { requiresInstall, repairNeeded }) {
 
 async function checkInstanceHealth({
   instance,
-  settings,
+  settings = {},
   sharedRoot,
   instancesRoot,
   inspectJavaFn = inspectJava,
@@ -290,6 +290,36 @@ async function checkInstanceHealth({
               });
             }
           }
+        }
+      } catch {}
+    }
+
+    // Pre-Flight Doctor: Stray vanilla game JAR in mods directory
+    if (fs.existsSync(modsDir)) {
+      try {
+        const modFiles = await fsp.readdir(modsDir);
+        const strayGameJar = modFiles.find(
+          (f) =>
+            f.endsWith(".jar") &&
+            !f.endsWith(".disabled") &&
+            (/^\d+\.\d+(\.\d+)?\.jar$/i.test(f) ||
+             /^(?:minecraft-)?(?:client-|server-)?\d+\.\d+(?:\.\d+)?(?:-client|-server)?\.jar$/i.test(f) ||
+             /^client\.jar$/i.test(f) ||
+             /^server\.jar$/i.test(f))
+        );
+        if (strayGameJar) {
+          checks.push({
+            code: "stray-vanilla-jar-in-mods",
+            status: "warning",
+            action: "auto",
+            message: `Stray Minecraft game JAR "${strayGameJar}" detected in mods folder (causes JPMS ResolutionException)`,
+            autoFix: {
+              type: "remove-vanilla-jar-from-mods",
+              titleKey: "crash.autofix.removeVanillaJar.title",
+              descKey: "crash.autofix.removeVanillaJar.desc",
+              payload: { fileName: strayGameJar },
+            },
+          });
         }
       } catch {}
     }

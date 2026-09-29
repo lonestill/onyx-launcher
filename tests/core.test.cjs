@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
 const fs = require("node:fs");
+const os = require("node:os");
 const zlib = require("node:zlib");
 const { pipeline } = require("node:stream/promises");
 const tar = require("tar-stream");
@@ -1923,4 +1924,37 @@ test("Azul Zulu and Adoptium platform helpers map OS and architectures correctly
     assert.equal(adoptiumArchitecture("arm64", 8), "x64");
   }
 });
+
+test("checkInstanceHealth: Pre-Flight Doctor detects stray vanilla game JAR in mods directory", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-preflight-vanilla-"));
+  const instId = "inst-preflight-vanilla";
+  const instDir = path.join(tmpRoot, "instances", instId);
+  const modsDir = path.join(instDir, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+  await fsp.writeFile(path.join(modsDir, "1.21.1.jar"), "dummy-content");
+
+  const instance = {
+    id: instId,
+    version: "1.21.1",
+    loader: "neoforge",
+  };
+
+  const report = await checkInstanceHealth({
+    instance,
+    sharedRoot: path.join(tmpRoot, "shared"),
+    instancesRoot: path.join(tmpRoot, "instances"),
+    totalMemory: 16 * 1024 * 1024 * 1024,
+  });
+
+  const strayCheck = report.checks.find((c) => c.code === "stray-vanilla-jar-in-mods");
+  assert.ok(strayCheck, "Expected stray-vanilla-jar-in-mods check to be present");
+  assert.equal(strayCheck.status, "warning");
+  assert.ok(strayCheck.autoFix);
+  assert.equal(strayCheck.autoFix.type, "remove-vanilla-jar-from-mods");
+  assert.equal(strayCheck.autoFix.payload.fileName, "1.21.1.jar");
+  assert.equal(report.hasDoctorWarnings, true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
 

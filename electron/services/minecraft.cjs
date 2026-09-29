@@ -1072,11 +1072,18 @@ class MinecraftService {
       );
     }
     if (Array.isArray(extraJvmArguments)) {
+      const isJava8 = (settings.javaMajor || requiredJava || 17) <= 8;
       jvmArguments.push(
         ...extraJvmArguments
           .filter((argument) => typeof argument === "string")
           .map((argument) => argument.trim())
-          .filter(Boolean),
+          .filter((argument) => {
+            if (!argument) return false;
+            if (isJava8 && (argument.startsWith("--add-reads") || argument.startsWith("--add-opens") || argument.startsWith("--add-modules"))) {
+              return false;
+            }
+            return true;
+          }),
       );
     }
 

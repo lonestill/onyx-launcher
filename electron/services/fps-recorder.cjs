@@ -434,6 +434,8 @@ class FpsRecorder {
         extraJvmArguments: [
           `-Xbootclasspath/a:${agentPath}`,
           `-javaagent:${agentPath}=${this.outputFile}`,
+          `--add-reads=org.lwjgl.glfw=ALL-UNNAMED`,
+          `--add-opens=org.lwjgl.glfw/org.lwjgl.glfw=ALL-UNNAMED`,
         ],
       };
     }

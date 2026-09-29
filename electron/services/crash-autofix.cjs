@@ -347,7 +347,10 @@ async function detectCrashAutoFix({
     combined.match(/Mod\s+'[^']+'\s+requires\s+([a-z0-9_\-+.]+),\s+which is missing/i) ||
     combined.match(/Unmet dependency:\s*mod\s+'[^']+'\s+requires\s+([a-z0-9_\-+.]+)/i) ||
     combined.match(/A potential solution has been determined:\s*(?:\n|\r\n)\s*-\s*Install\s+([a-z0-9_\-+.]+)/i) ||
-    combined.match(/Missing or unsupported mandatory dependencies:\s*(?:[\s\S]*?)\s*Mod ID:\s*'([a-z0-9_\-+.]+)'/i);
+    combined.match(/Missing or unsupported mandatory dependencies:\s*(?:[\s\S]*?)\s*Mod ID:\s*'([a-z0-9_\-+.]+)'/i) ||
+    combined.match(/Mod\s+[a-zA-Z0-9_\-+.]+\s+requires\s+([a-z0-9_\-+.]+)(?:\s+[0-9.]+)?\s+or above[\s\S]*?Currently,?\s*(?:\1\s+)?is not installed/i) ||
+    combined.match(/requires\s+([a-z0-9_\-+.]+)(?:\s+[0-9.]+)?\s+or above[\s\S]*?Currently,?\s*(?:\1\s+)?is not installed/i) ||
+    combined.match(/Failure message:\s*Mod\s+[a-zA-Z0-9_\-+.]+\s+requires\s+([a-z0-9_\-+.]+)/i);
 
   if (missingDepMatch) {
     const rawDepId = (missingDepMatch[1] || missingDepMatch[2] || "").trim().toLowerCase();
@@ -478,6 +481,49 @@ async function detectCrashAutoFix({
               disableFile,
             },
           };
+        }
+      } catch {}
+    }
+  }
+
+  // 9.5. Stray Vanilla Game JAR in mods folder (causes JPMS ResolutionException failTwoSuppliers on NeoForge/Forge)
+  const isSplitPackageCrash =
+    /ResolutionException:\s*Modules\s+(_[0-9_.]+|[a-zA-Z0-9_.]+)\s+and\s+minecraft\s+export package/i.test(combined) ||
+    /Modules\s+(_[0-9_.]+|[a-zA-Z0-9_.]+)\s+and\s+minecraft\s+export package/i.test(combined);
+
+  if ((isSplitPackageCrash || (instancesRoot && instance.id)) && instancesRoot && instance.id) {
+    const modsDir = path.join(instancesRoot, instance.id, "mods");
+    if (fs.existsSync(modsDir)) {
+      try {
+        const files = await fsp.readdir(modsDir);
+        const strayVanillaJar = files.find(
+          (f) =>
+            f.endsWith(".jar") &&
+            !f.endsWith(".disabled") &&
+            (/^\d+\.\d+(\.\d+)?\.jar$/i.test(f) ||
+             /^(?:minecraft-)?(?:client-|server-)?\d+\.\d+(?:\.\d+)?(?:-client|-server)?\.jar$/i.test(f) ||
+             /^client\.jar$/i.test(f) ||
+             /^server\.jar$/i.test(f))
+        );
+
+        if (strayVanillaJar || isSplitPackageCrash) {
+          const splitMatch = combined.match(/Modules\s+(_[0-9_.]+|[a-zA-Z0-9_.]+)\s+and\s+minecraft\s+export package/i);
+          let targetFile = strayVanillaJar;
+          if (!targetFile && splitMatch && splitMatch[1]) {
+            const rawModName = splitMatch[1].replace(/^_/, "").replace(/\._/g, ".");
+            targetFile = files.find((f) => f.toLowerCase().includes(rawModName.toLowerCase())) || `${rawModName}.jar`;
+          }
+
+          if (targetFile) {
+            return {
+              type: "remove-vanilla-jar-from-mods",
+              titleKey: "crash.autofix.removeVanillaJar.title",
+              descKey: "crash.autofix.removeVanillaJar.desc",
+              payload: {
+                fileName: targetFile,
+              },
+            };
+          }
         }
       } catch {}
     }
@@ -1339,6 +1385,47 @@ async function applyCrashAutoFix({
         success: true,
         action: "quarantine-playerdata",
         message: quarantined ? `Quarantined player data for ${uuid}` : "Backed up player data",
+      };
+    }
+
+    case "remove-vanilla-jar-from-mods": {
+      const fileName = fixAction.payload?.fileName;
+      const modsDir = path.join(instancesRoot, instance.id, "mods");
+      let removed = false;
+      if (fileName && fs.existsSync(path.join(modsDir, fileName))) {
+        const targetPath = path.join(modsDir, fileName);
+        await fsp.rename(targetPath, `${targetPath}.disabled`).catch(async () => {
+          await fsp.unlink(targetPath).catch(() => {});
+        });
+        removed = true;
+      } else if (fs.existsSync(modsDir)) {
+        const files = await fsp.readdir(modsDir).catch(() => []);
+        for (const f of files) {
+          if (
+            f.endsWith(".jar") &&
+            !f.endsWith(".disabled") &&
+            (/^\d+\.\d+(\.\d+)?\.jar$/i.test(f) ||
+             /^(?:minecraft-)?(?:client-|server-)?\d+\.\d+.*\.jar$/i.test(f) ||
+             /^client\.jar$/i.test(f) ||
+             /^server\.jar$/i.test(f))
+          ) {
+            const targetPath = path.join(modsDir, f);
+            await fsp.rename(targetPath, `${targetPath}.disabled`).catch(async () => {
+              await fsp.unlink(targetPath).catch(() => {});
+            });
+            removed = true;
+          }
+        }
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: removed,
+        action: "remove-vanilla-jar-from-mods",
+        message: removed
+          ? `Disabled stray vanilla game JAR ${fileName || ""} from mods directory`
+          : "No stray game JAR found to disable",
       };
     }
 

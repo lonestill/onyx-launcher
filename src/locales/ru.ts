@@ -1386,5 +1386,7 @@ export const ru: Record<TranslationKey, string> = {
   "crash.autofix.purgeNatives.desc": "Обнаружены повреждённые нативные библиотеки LWJGL. Очистить папку natives для чистой распаковки при следующем запуске?",
   "crash.autofix.allowSecurityManager.title": "Разрешить флаг Security Manager",
   "crash.autofix.allowSecurityManager.desc": "Мод аварийно завершился из-за ограничений SecurityManager в новой Java. Добавить флаг запуска -Djava.security.manager=allow?",
+  "crash.autofix.removeVanillaJar.title": "Удалить ванильный JAR из папки модов",
+  "crash.autofix.removeVanillaJar.desc": "Файл {fileName} был ошибочно помещён в папку mods. Модульная система Java конфликтует с ним при загрузке. Отключить этот файл?",
 };
 

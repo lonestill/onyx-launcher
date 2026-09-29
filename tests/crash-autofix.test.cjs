@@ -770,3 +770,48 @@ test("detectCrashAutoFix & apply: allow-security-manager-flag", async () => {
   assert.ok(instance.settings.jvmArguments.includes("-Djava.security.manager=allow"));
 });
 
+test("detectCrashAutoFix: detects NeoForge missing dependency (geckolib) from crash log", async () => {
+  const instance = { id: "inst-nf", loader: "neoforge", version: "1.21.1" };
+  const logContent = `
+-- Mod loading issue for: ribbits --
+Details:
+	Mod file: /home/user/.minecraft/mods/Ribbits-1.21.1-NeoForge-4.1.6.jar
+	Failure message: Mod ribbits requires geckolib 4.7.5.1 or above
+		Currently, geckolib is not installed
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix, "Expected fix to be detected");
+  assert.equal(fix.type, "install-missing-dependency");
+  assert.equal(fix.payload.depId, "geckolib");
+  assert.equal(fix.payload.projectId, "geckolib");
+  assert.equal(fix.payload.depName, "GeckoLib");
+});
+
+test("detectCrashAutoFix & apply: remove-vanilla-jar-from-mods disables stray 1.21.1.jar", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-vanilla-"));
+  const instId = "inst-vanilla";
+  const modsDir = path.join(tmpRoot, instId, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+  await fsp.writeFile(path.join(modsDir, "1.21.1.jar"), "dummy-vanilla-jar");
+
+  const instance = { id: instId, loader: "neoforge", version: "1.21.1" };
+  const logContent = `
+Exception in thread "main" java.lang.module.ResolutionException: Modules _1._21._1 and minecraft export package net.minecraft.server to module create
+	at java.base/java.lang.module.Resolver.resolveFail(Unknown Source)
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent, instancesRoot: tmpRoot });
+
+  assert.ok(fix, "Expected stray vanilla jar fix to be detected");
+  assert.equal(fix.type, "remove-vanilla-jar-from-mods");
+  assert.equal(fix.payload.fileName, "1.21.1.jar");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(path.join(modsDir, "1.21.1.jar")), false);
+  assert.equal(fs.existsSync(path.join(modsDir, "1.21.1.jar.disabled")), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+

@@ -1384,6 +1384,8 @@ export const en = {
   "crash.autofix.purgeNatives.desc": "Corrupted LWJGL native libraries detected. Clear natives directory to force clean extraction on next launch?",
   "crash.autofix.allowSecurityManager.title": "Allow Security Manager Flag",
   "crash.autofix.allowSecurityManager.desc": "Mod failed on modern Java SecurityManager restrictions. Inject -Djava.security.manager=allow launch argument?",
+  "crash.autofix.removeVanillaJar.title": "Remove Vanilla Game JAR from Mods",
+  "crash.autofix.removeVanillaJar.desc": "Game archive {fileName} was accidentally placed into the mods folder. Java's module system conflicts with duplicate game packages. Disable this file?",
 } as const;
 
 export type TranslationKey = keyof typeof en;
