@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Download,
   Loader2,
+  Clipboard,
 } from "lucide-react";
 import { useI18n } from "../i18n";
 import type { GameInstance } from "../types";
@@ -69,6 +70,19 @@ export function ImportLinkModal({
       setLoadingPreview(false);
     }
   }, [inputVal, t]);
+
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        const clean = text.trim();
+        setInputVal(clean);
+        void handleFetchPreview(clean);
+      }
+    } catch {
+      // Fallback
+    }
+  }, [handleFetchPreview]);
 
   useEffect(() => {
     if (initialUrl) {
@@ -147,11 +161,11 @@ export function ImportLinkModal({
 
           <label className="field" style={{ marginTop: 0, marginBottom: 16 }}>
             <span>{isRu ? "Ссылка или код сборки" : "Share URL or Pack Code"}</span>
-            <div className="field__control" style={{ paddingRight: 4 }}>
+            <div className="field__control" style={{ paddingRight: 4, gap: 6 }}>
               <Link2 size={16} />
               <input
                 autoFocus
-                placeholder="https://onyx-launcher-hub.vercel.app/pack/pk_... или pk_..."
+                placeholder="https://scope-hub.vercel.app/pack/pk_... или pk_..."
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 onKeyDown={(e) => {
@@ -161,6 +175,15 @@ export function ImportLinkModal({
                 }}
                 style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}
               />
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => void handlePaste()}
+                title={isRu ? "Вставить из буфера" : "Paste from clipboard"}
+                style={{ height: 31, padding: "0 10px", fontSize: 12 }}
+              >
+                <Clipboard size={14} />
+              </button>
               <button
                 type="button"
                 className="button button--secondary"

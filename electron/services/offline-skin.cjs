@@ -7,13 +7,13 @@ function isLoaderSupported(loader) {
   return ["fabric", "forge", "neoforge", "quilt"].some((l) => norm.includes(l));
 }
 
-function resolveLoaderKey(loader) {
+function getCompatibleLoaders(loader) {
   const norm = String(loader || "").toLowerCase();
-  if (norm.includes("quilt")) return "quilt";
-  if (norm.includes("neoforge")) return "neoforge";
-  if (norm.includes("forge")) return "forge";
-  if (norm.includes("fabric")) return "fabric";
-  return null;
+  if (norm.includes("neoforge")) return ["neoforge", "forge"];
+  if (norm.includes("quilt")) return ["quilt", "fabric"];
+  if (norm.includes("forge")) return ["forge"];
+  if (norm.includes("fabric")) return ["fabric"];
+  return [];
 }
 
 async function checkSkinLoaderStatus(instance, instancesRoot) {
@@ -42,32 +42,33 @@ async function checkSkinLoaderStatus(instance, instancesRoot) {
 }
 
 async function installCustomSkinLoader({ instance, instancesRoot, signal, onProgress }) {
-  const supported = isLoaderSupported(instance.loader);
-  if (!supported) {
+  const compatible = getCompatibleLoaders(instance.loader);
+  if (compatible.length === 0) {
     throw new Error(
-      "Для мода скинов требуется Fabric, Forge, NeoForge или Quilt. В чистой ванилле загрузка модов не поддерживается движком игры."
+      `Загрузчик ${instance.loader} не поддерживается для мода CustomSkinLoader.`
     );
   }
-  const loaderKey = resolveLoaderKey(instance.loader) || "fabric";
   const instanceDir = path.join(instancesRoot, instance.id);
   const modsDir = path.join(instanceDir, "mods");
   await fsp.mkdir(modsDir, { recursive: true });
 
-  // 1. Try exact match for loader + game version
+  // 1. Try match for compatible loader + game version
   let versions = [];
   try {
     const url = `https://api.modrinth.com/v2/project/customskinloader/version?loaders=${encodeURIComponent(
-      JSON.stringify([loaderKey]),
+      JSON.stringify(compatible),
     )}&game_versions=${encodeURIComponent(JSON.stringify([instance.version]))}`;
     versions = await fetchJson(url, { signal });
   } catch {
     versions = [];
   }
 
-  // 2. If no direct match, query all project versions (CSL Universal jar supports versions across wide ranges)
+  // 2. Fallback: query versions specifically for compatible loaders
   if (!Array.isArray(versions) || versions.length === 0) {
     try {
-      const url = `https://api.modrinth.com/v2/project/customskinloader/version`;
+      const url = `https://api.modrinth.com/v2/project/customskinloader/version?loaders=${encodeURIComponent(
+        JSON.stringify(compatible),
+      )}`;
       const all = await fetchJson(url, { signal });
       versions = Array.isArray(all) ? all : [];
     } catch (err) {
@@ -75,12 +76,13 @@ async function installCustomSkinLoader({ instance, instancesRoot, signal, onProg
     }
   }
 
+  // Find candidate that strictly matches any compatible loader
   const candidate = versions.find((v) =>
-    Array.isArray(v.loaders) && v.loaders.includes(loaderKey)
-  ) || versions[0];
+    Array.isArray(v.loaders) && v.loaders.some((l) => compatible.includes(l.toLowerCase()))
+  );
 
   if (!candidate || !candidate.files || candidate.files.length === 0) {
-    throw new Error("Не удалось найти подходящий файл CustomSkinLoader на Modrinth");
+    throw new Error(`Не найден подходящий файл CustomSkinLoader для ${instance.loader} ${instance.version}`);
   }
 
   const primaryFile = candidate.files.find((f) => f.primary) || candidate.files[0];

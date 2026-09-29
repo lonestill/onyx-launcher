@@ -118,8 +118,39 @@ async function installE4mc({ instance, instancesRoot, signal, onProgress }) {
   };
 }
 
+async function convertVanillaToFabricAndInstallE4mc({ instance, instancesRoot, signal, onProgress }) {
+  let loaderVersion = null;
+  try {
+    const loaders = await fetchJson(
+      `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(instance.version)}`,
+      { signal }
+    );
+    loaderVersion =
+      loaders?.find?.((entry) => entry.loader?.stable)?.loader?.version ||
+      loaders?.[0]?.loader?.version ||
+      null;
+  } catch {
+    loaderVersion = null;
+  }
+
+  instance.loader = "Fabric";
+  if (loaderVersion) {
+    instance.loaderVersion = loaderVersion;
+  }
+
+  const installRes = await installE4mc({ instance, instancesRoot, signal, onProgress });
+
+  return {
+    success: true,
+    loader: "Fabric",
+    loaderVersion: instance.loaderVersion || null,
+    jarName: installRes.jarName,
+  };
+}
+
 module.exports = {
   isLoaderSupported,
   checkE4mcStatus,
   installE4mc,
+  convertVanillaToFabricAndInstallE4mc,
 };

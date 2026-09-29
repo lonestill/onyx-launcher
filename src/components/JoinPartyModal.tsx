@@ -24,11 +24,13 @@ interface JoinPartyModalProps {
   onNotify: (tone: "success" | "warning" | "info", title: string, message: string) => void;
 }
 
-export function extractRoomCode(input: string): string {
+function extractRoomCode(input: string): string {
   if (!input) return "";
   const trimmed = input.trim();
+  if (trimmed.includes("/pack/") || trimmed.startsWith("pk_")) return "";
+
   const urlMatch =
-    trimmed.match(/(?:scope|onyx):\/\/(?:party\/)?([a-zA-Z0-9_-]+)/i) ||
+    trimmed.match(/(?:scope|onyx):\/\/party\/([a-zA-Z0-9_-]+)/i) ||
     trimmed.match(/\/party\/([a-zA-Z0-9_-]+)/i);
   if (urlMatch) return urlMatch[1].toUpperCase();
 
@@ -39,7 +41,10 @@ export function extractRoomCode(input: string): string {
     .replace(/^(?:код|code|party|комната)[\s:]+/i, "")
     .replace(/^[^a-zA-Z0-9]+/, "")
     .replace(/[^a-zA-Z0-9_-].*$/, "");
-  return clean.toUpperCase();
+  if (clean.length >= 6 && clean.length <= 8 && clean !== "PACK") {
+    return clean.toUpperCase();
+  }
+  return "";
 }
 
 export function JoinPartyModal({
@@ -471,16 +476,39 @@ export function JoinPartyModal({
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 6,
+                        justifyContent: "space-between",
                         color: "var(--text-soft)",
                         fontSize: "11px",
                         marginTop: 2,
+                        gap: 8,
                       }}
                     >
-                      <CheckCircle2 size={13} color="#a3e635" />
-                      <span>
-                        {t("party.joinModal.directConnect", { port: room.guestProxyPort })}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <CheckCircle2 size={13} color="#a3e635" />
+                        <span>
+                          {t("party.joinModal.directConnect", { port: room.guestProxyPort })}
+                        </span>
+                      </div>
+                      {room.tunnelHost && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            background: "rgba(255, 255, 255, 0.06)",
+                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                            color: "#d4d4d8",
+                            fontFamily: "var(--font-mono, monospace)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {room.tunnelHost.includes("e4mc.link")
+                            ? "e4mc"
+                            : room.tunnelHost.includes("ply.gg")
+                              ? "Playit.gg"
+                              : "UPnP / LAN"}
+                        </span>
+                      )}
                     </div>
                   ) : room.tunnelHost && room.tunnelPort ? (
                     <div

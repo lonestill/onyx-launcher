@@ -53,6 +53,10 @@ import {
   X,
   Users2,
   BookOpen,
+  Network,
+  Globe,
+  Radio,
+  Zap,
 } from "lucide-react";
 import { useSearchFocus } from "../hooks/useSearchFocus";
 import { useI18n } from "../i18n";
@@ -232,12 +236,107 @@ export function InstancePage({
   // ── Party state ──────────────────────────────────────────────────────────────
   const [partyRoom, setPartyRoom] = useState<PartyRoomState | null>(null);
   const [partyInstanceId, setPartyInstanceId] = useState<string | null>(null);
-  const [partyLanInfo, setPartyLanInfo] = useState<{ lanPort: number; relayPort: number; hostIp: string; isE4mc?: boolean } | null>(null);
+  const [partyLanInfo, setPartyLanInfo] = useState<{
+    lanPort: number;
+    relayPort: number;
+    hostIp: string;
+    isE4mc?: boolean;
+    tunnelType?: "e4mc" | "upnp" | "playit" | "local";
+  } | null>(null);
   const [partyCreating, setPartyCreating] = useState(false);
   const [partyCopied, setPartyCopied] = useState(false);
   const [partyGuideOpen, setPartyGuideOpen] = useState(true);
   const [isPartyHost, setIsPartyHost] = useState(false);
   const [guestProxyPort, setGuestProxyPort] = useState<number | null>(null);
+  const [partyTunnelMode, setPartyTunnelMode] = useState<"auto" | "e4mc" | "upnp" | "playit" | "local">("auto");
+  const [e4mcStatus, setE4mcStatus] = useState<{
+    installed: boolean;
+    supported: boolean;
+    loader: string;
+    version: string;
+    jarName: string | null;
+  } | null>(null);
+  const [installingE4mc, setInstallingE4mc] = useState(false);
+  const [convertingVanilla, setConvertingVanilla] = useState(false);
+  const [testingUpnp, setTestingUpnp] = useState(false);
+
+  const refreshE4mcStatus = useCallback(async () => {
+    if (!instance?.id) return;
+    try {
+      const res = await window.onyx.party.checkE4mc({ instanceId: instance.id });
+      setE4mcStatus(res);
+    } catch {
+      setE4mcStatus(null);
+    }
+  }, [instance?.id]);
+
+  useEffect(() => {
+    void refreshE4mcStatus();
+  }, [refreshE4mcStatus]);
+
+  const handleInstallE4mc = useCallback(async () => {
+    if (!instance?.id) return;
+    setInstallingE4mc(true);
+    try {
+      const res = await window.onyx.party.installE4mc({ instanceId: instance.id });
+      if (res.installed) {
+        onNotify("success", t("party.installSuccess"), res.jarName);
+        await refreshE4mcStatus();
+        onChanged();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      onNotify("warning", t("common.error"), msg);
+    } finally {
+      setInstallingE4mc(false);
+    }
+  }, [instance?.id, onNotify, t, refreshE4mcStatus, onChanged]);
+
+  const handleConvertVanillaE4mc = useCallback(async () => {
+    if (!instance?.id) return;
+    setConvertingVanilla(true);
+    try {
+      const res = await window.onyx.party.convertVanillaE4mc({ instanceId: instance.id });
+      if (res.success) {
+        onNotify("success", t("party.convertSuccess"), `Fabric + ${res.jarName}`);
+        await refreshE4mcStatus();
+        onChanged();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      onNotify("warning", t("common.error"), msg);
+    } finally {
+      setConvertingVanilla(false);
+    }
+  }, [instance?.id, onNotify, t, refreshE4mcStatus, onChanged]);
+
+  const handleSetTunnelMode = useCallback(async (mode: "auto" | "e4mc" | "upnp" | "playit" | "local") => {
+    setPartyTunnelMode(mode);
+    try {
+      await window.onyx.party.setTunnelMode({ mode });
+    } catch { /**/ }
+  }, []);
+
+  const handleTestUpnp = useCallback(async () => {
+    setTestingUpnp(true);
+    try {
+      const res = await window.onyx.party.testUpnp();
+      if (res.success) {
+        if (res.isCgnat) {
+          onNotify("warning", "UPnP (CGNAT)", t("party.testUpnp.cgnat"));
+        } else {
+          onNotify("success", "UPnP OK", t("party.testUpnp.success", { ip: res.externalIp || "", port: res.externalPort || 25565 }));
+        }
+      } else {
+        onNotify("warning", "UPnP", t("party.testUpnp.failed", { error: res.error || "no response" }));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      onNotify("warning", "UPnP", msg);
+    } finally {
+      setTestingUpnp(false);
+    }
+  }, [onNotify, t]);
 
   // Subscribe to room updates once on mount
   useEffect(() => {
@@ -252,6 +351,7 @@ export function InstancePage({
     });
     // Restore state if already in a room (persisted across restarts or navigation)
     void window.onyx.party.status().then((s) => {
+      if (s.tunnelMode) setPartyTunnelMode(s.tunnelMode);
       if (s.inRoom && s.room) {
         setPartyRoom(s.room);
         if (s.instanceId) setPartyInstanceId(s.instanceId);
@@ -1588,18 +1688,128 @@ export function InstancePage({
                     <span className="party-card__code-link">scope://party/{partyRoom.code}</span>
                   </div>
 
-                  <div className="party-card__network-status">
-                    <span className={`party-card__network-dot ${partyLanInfo || partyRoom.tunnelHost ? "is-live" : ""}`} />
-                    <span className="party-card__network-text">
-                      {partyLanInfo?.isE4mc
-                        ? t("party.lan.e4mcReady", { domain: partyLanInfo.hostIp })
-                        : partyLanInfo?.relayPort
-                          ? t("party.lan.relayReady", { port: partyLanInfo.relayPort })
-                          : partyRoom.tunnelHost
-                            ? t("party.lan.e4mcReady", { domain: partyRoom.tunnelHost })
-                            : t("party.lan.waiting")}
-                    </span>
+                  <div className="party-card__network-box">
+                    <div className="party-card__network-status">
+                      <span className={`party-card__network-dot ${partyLanInfo || partyRoom.tunnelHost ? "is-live" : ""}`} />
+                      <div className="party-card__network-info">
+                        <span className="party-card__network-text">
+                          {partyLanInfo?.tunnelType === "e4mc" || partyLanInfo?.isE4mc
+                            ? t("party.lan.e4mcReady", { domain: partyLanInfo.hostIp })
+                            : partyLanInfo?.tunnelType === "upnp"
+                              ? `${t("party.tunnel.upnp")}: ${partyLanInfo.hostIp}:${partyLanInfo.relayPort}`
+                              : partyLanInfo?.tunnelType === "playit"
+                                ? `${t("party.tunnel.playit")}: ${partyLanInfo.hostIp}:${partyLanInfo.relayPort}`
+                                : partyLanInfo?.tunnelType === "local"
+                                  ? `${t("party.tunnel.local")}: ${partyLanInfo.hostIp}:${partyLanInfo.relayPort}`
+                                  : partyRoom.tunnelHost
+                                    ? partyRoom.tunnelHost.includes("e4mc.link")
+                                      ? t("party.lan.e4mcReady", { domain: partyRoom.tunnelHost })
+                                      : `${partyRoom.tunnelHost}:${partyRoom.tunnelPort}`
+                                    : t("party.lan.waiting")}
+                        </span>
+                        {partyLanInfo?.tunnelType && (
+                          <span className={`party-tunnel-tag party-tunnel-tag--${partyLanInfo.tunnelType}`}>
+                            {partyLanInfo.tunnelType === "e4mc" && <Globe size={11} />}
+                            {partyLanInfo.tunnelType === "upnp" && <Network size={11} />}
+                            {partyLanInfo.tunnelType === "playit" && <Radio size={11} />}
+                            {partyLanInfo.tunnelType === "local" && <Users2 size={11} />}
+                            <span>{t(`party.tunnel.${partyLanInfo.tunnelType}`)}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
+
+                  {isPartyHost && (
+                    <div className="party-tunnel-config">
+                      <div className="party-tunnel-config__head">
+                        <span className="party-tunnel-config__label">{t("party.tunnelMode.label")}</span>
+                        {partyTunnelMode === "upnp" && (
+                          <button
+                            type="button"
+                            className="button button--mini button--secondary"
+                            onClick={() => void handleTestUpnp()}
+                            disabled={testingUpnp}
+                          >
+                            {testingUpnp ? <LoaderCircle className="spin" size={12} /> : <Network size={12} />}
+                            <span>{t("party.testUpnp.btn")}</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="party-tunnel-tabs">
+                        {(
+                          [
+                            ["auto", t("party.tunnelMode.auto"), t("party.tunnelMode.autoTooltip")],
+                            ["e4mc", t("party.tunnelMode.e4mc"), t("party.tunnelMode.e4mcTooltip")],
+                            ["upnp", t("party.tunnelMode.upnp"), t("party.tunnelMode.upnpTooltip")],
+                            ["playit", t("party.tunnelMode.playit"), t("party.tunnelMode.playitTooltip")],
+                            ["local", t("party.tunnelMode.local"), t("party.tunnelMode.localTooltip")],
+                          ] as const
+                        ).map(([mode, label, tip]) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            title={tip}
+                            className={`party-tunnel-tab ${partyTunnelMode === mode ? "is-active" : ""}`}
+                            onClick={() => void handleSetTunnelMode(mode)}
+                          >
+                            {mode === "auto" && <Sparkles size={12} />}
+                            {mode === "e4mc" && <Globe size={12} />}
+                            {mode === "upnp" && <Network size={12} />}
+                            {mode === "playit" && <Radio size={12} />}
+                            {mode === "local" && <Wifi size={12} />}
+                            <span>{label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {instance.loader === "vanilla" && isPartyHost && (
+                    <div className="party-helper-banner">
+                      <div className="party-helper-banner__icon">
+                        <Zap size={16} />
+                      </div>
+                      <div className="party-helper-banner__content">
+                        <strong>{t("party.vanillaFix.title")}</strong>
+                        <p>{t("party.vanillaFix.desc")}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="button button--mini button--accent"
+                        onClick={() => void handleConvertVanillaE4mc()}
+                        disabled={convertingVanilla}
+                      >
+                        {convertingVanilla ? <LoaderCircle className="spin" size={13} /> : <Zap size={13} />}
+                        <span>{t("party.vanillaFix.action")}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {instance.loader !== "vanilla" &&
+                    isPartyHost &&
+                    e4mcStatus &&
+                    !e4mcStatus.installed &&
+                    e4mcStatus.supported && (
+                      <div className="party-helper-banner">
+                        <div className="party-helper-banner__icon">
+                          <Download size={16} />
+                        </div>
+                        <div className="party-helper-banner__content">
+                          <strong>{t("party.e4mcInstall.title")}</strong>
+                          <p>{t("party.e4mcInstall.desc")}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="button button--mini button--accent"
+                          onClick={() => void handleInstallE4mc()}
+                          disabled={installingE4mc}
+                        >
+                          {installingE4mc ? <LoaderCircle className="spin" size={13} /> : <Download size={13} />}
+                          <span>{t("party.e4mcInstall.action")}</span>
+                        </button>
+                      </div>
+                    )}
 
                   {partyGuideOpen && (
                     <div className="party-guide">

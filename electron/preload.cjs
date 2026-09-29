@@ -293,6 +293,9 @@ const api = {
     syncMods: (opts) => ipcRenderer.invoke("party:sync-mods", opts),
     checkE4mc: (opts) => ipcRenderer.invoke("party:check-e4mc", opts),
     installE4mc: (opts) => ipcRenderer.invoke("party:install-e4mc", opts),
+    convertVanillaE4mc: (opts) => ipcRenderer.invoke("party:convert-vanilla-e4mc", opts),
+    setTunnelMode: (opts) => ipcRenderer.invoke("party:set-tunnel-mode", opts),
+    testUpnp: () => ipcRenderer.invoke("party:test-upnp"),
     networkInfo: () => ipcRenderer.invoke("party:network-info"),
     onRoomUpdate: (callback) => {
       const listener = (_event, payload) => callback(payload);

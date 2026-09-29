@@ -37,6 +37,7 @@ interface HomePageProps {
   onConfigure: (instance: GameInstance) => void;
   onApplyAutoFix?: (instance: GameInstance, fix: CrashAutoFix) => void;
   onJoinParty?: (code?: string) => void;
+  onImportPack?: (urlOrId: string) => void;
 }
 
 export function HomePage({
@@ -50,6 +51,7 @@ export function HomePage({
   onConfigure,
   onApplyAutoFix,
   onJoinParty,
+  onImportPack,
 }: HomePageProps) {
   const { locale, t } = useI18n();
   const hour = new Date().getHours();
@@ -114,9 +116,18 @@ export function HomePage({
     const trimmed = quickServer.trim();
     if (!trimmed) return;
     if (
-      trimmed.startsWith("scope://") ||
-      trimmed.startsWith("onyx://") ||
+      trimmed.includes("/pack/") ||
+      trimmed.startsWith("scope://pack/") ||
+      trimmed.startsWith("onyx://pack/") ||
+      trimmed.startsWith("pk_")
+    ) {
+      onImportPack?.(trimmed);
+      return;
+    }
+    if (
       trimmed.includes("/party/") ||
+      trimmed.startsWith("scope://party/") ||
+      trimmed.startsWith("onyx://party/") ||
       /\b[A-Za-z0-9]{3}[- ][A-Za-z0-9]{3}\b/.test(trimmed)
     ) {
       onJoinParty?.(trimmed);

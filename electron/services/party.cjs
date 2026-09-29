@@ -27,7 +27,9 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { fetchJson, downloadFile, hashFile } = require("./network.cjs");
 const { injectRoomServer, removeRoomServer } = require("./servers-dat.cjs");
-const { checkE4mcStatus, installE4mc } = require("./e4mc.cjs");
+const { checkE4mcStatus, installE4mc, convertVanillaToFabricAndInstallE4mc } = require("./e4mc.cjs");
+const { setupUpnpTunnel, deletePortMapping } = require("./upnp.cjs");
+const { startPlayitTunnel, stopPlayitTunnel } = require("./playit.cjs");
 
 const DEFAULT_HUB_URL =
   process.env.SCOPE_HUB_URL ||
@@ -178,10 +180,16 @@ class RoomSession {
     this._relayPort = null;
     this._e4mcDomain = null;
 
+    // Tunnel orchestration
+    this.tunnelMode = "auto"; // "auto" | "e4mc" | "upnp" | "playit" | "local"
+    this._upnpClient = null;
+    this._upnpExtPort = null;
+    this._playitActive = false;
+
     // LAN sniffer (host-side: auto-detects Minecraft Open to LAN)
     this._snifferSocket = null;
     this._detectedLanPort = null;
-    this.onLanDetected = null; // ({ lanPort, relayPort, hostIp, isE4mc }) => void
+    this.onLanDetected = null; // ({ lanPort, relayPort, hostIp, isE4mc, tunnelType }) => void
 
     // LAN beacon & proxy (guest-side: makes room show in Minecraft Multiplayer list)
     this._beaconSocket = null;
@@ -215,6 +223,114 @@ class RoomSession {
   }
 
   /**
+   * Handle discovered Minecraft LAN server port using active tunnelMode.
+   */
+  async handleLanPortDetected(lanPort) {
+    if (!this.isHost) return;
+    this._detectedLanPort = lanPort;
+
+    if (this._e4mcDomain) {
+      await this.publishTunnel(this._e4mcDomain, MC_DEFAULT_PORT);
+      this.onLanDetected?.({
+        lanPort,
+        relayPort: MC_DEFAULT_PORT,
+        hostIp: this._e4mcDomain,
+        isE4mc: true,
+        tunnelType: "e4mc",
+      });
+      return;
+    }
+
+    const mode = this.tunnelMode || "auto";
+
+    // 1. If UPnP is requested or in auto mode
+    if (mode === "auto" || mode === "upnp") {
+      try {
+        console.log(`[party] Attempting UPnP port mapping for LAN port ${lanPort}...`);
+        const localIp = getLocalIpAddress();
+        const upnpRes = await setupUpnpTunnel({
+          internalPort: lanPort,
+          localIp,
+        });
+        if (upnpRes.success) {
+          this._upnpClient = upnpRes.client;
+          this._upnpExtPort = upnpRes.externalPort;
+          console.log(`[party] UPnP successful: ${upnpRes.externalIp}:${upnpRes.externalPort}`);
+          await this.publishTunnel(upnpRes.externalIp, upnpRes.externalPort);
+          this.onLanDetected?.({
+            lanPort,
+            relayPort: upnpRes.externalPort,
+            hostIp: upnpRes.externalIp,
+            isE4mc: false,
+            tunnelType: "upnp",
+          });
+          return;
+        } else {
+          console.warn("[party] UPnP failed:", upnpRes.error);
+          if (mode === "upnp") {
+            throw new Error(upnpRes.error || "UPnP mapping failed");
+          }
+        }
+      } catch (err) {
+        console.warn("[party] UPnP error:", err.message);
+        if (mode === "upnp") {
+          throw err;
+        }
+      }
+    }
+
+    // 2. If Playit is requested or fallback from failed UPnP in auto mode
+    if (mode === "auto" || mode === "playit") {
+      try {
+        console.log(`[party] Starting Playit.gg tunnel for LAN port ${lanPort}...`);
+        const storageRoot = _storageDir || os.homedir();
+        const playitRes = await startPlayitTunnel({
+          lanPort,
+          storageRoot,
+          onStatus: (st) => {
+            console.log("[party:playit]", st.message);
+          },
+        });
+        if (playitRes && playitRes.tunnelHost && playitRes.tunnelPort) {
+          this._playitActive = true;
+          console.log(`[party] Playit.gg tunnel active: ${playitRes.tunnelHost}:${playitRes.tunnelPort}`);
+          await this.publishTunnel(playitRes.tunnelHost, playitRes.tunnelPort);
+          this.onLanDetected?.({
+            lanPort,
+            relayPort: playitRes.tunnelPort,
+            hostIp: playitRes.tunnelHost,
+            isE4mc: false,
+            tunnelType: "playit",
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn("[party] Playit.gg error:", err.message);
+        if (mode === "playit") {
+          throw err;
+        }
+      }
+    }
+
+    // 3. Fallback: local relay
+    try {
+      const assignedRelayPort = await this.startLocalRelay(lanPort);
+      const hostIp = getLocalIpAddress();
+      console.log(`[party] Falling back to local LAN relay: ${hostIp}:${assignedRelayPort}`);
+      await this.publishTunnel(hostIp, assignedRelayPort);
+      this.onLanDetected?.({
+        lanPort,
+        relayPort: assignedRelayPort,
+        hostIp,
+        isE4mc: false,
+        tunnelType: "local",
+      });
+    } catch (err) {
+      console.error("[party] Failed to start local relay:", err);
+    }
+  }
+
+  /**
    * Ingest game log text in real time.
    * Host: captures e4mc public domain or LAN server port from console output.
    */
@@ -231,7 +347,13 @@ class RoomSession {
         if (this.isHost) {
           void this.publishTunnel(domain, MC_DEFAULT_PORT);
           if (this.onLanDetected) {
-            this.onLanDetected({ lanPort: MC_DEFAULT_PORT, relayPort: MC_DEFAULT_PORT, hostIp: domain, isE4mc: true });
+            this.onLanDetected({
+              lanPort: MC_DEFAULT_PORT,
+              relayPort: MC_DEFAULT_PORT,
+              hostIp: domain,
+              isE4mc: true,
+              tunnelType: "e4mc",
+            });
           }
         }
       }
@@ -242,22 +364,8 @@ class RoomSession {
     if (lanMatch) {
       const lanPort = parseInt(lanMatch[1], 10);
       if (lanPort && lanPort !== this._detectedLanPort && !this._e4mcDomain) {
-        this._detectedLanPort = lanPort;
         console.log(`[party] Captured LAN server port from console log: ${lanPort}`);
-        if (this.isHost) {
-          void (async () => {
-            try {
-              const assignedRelayPort = await this.startLocalRelay(lanPort);
-              const hostIp = getLocalIpAddress();
-              await this.publishTunnel(hostIp, assignedRelayPort);
-              if (this.onLanDetected) {
-                this.onLanDetected({ lanPort, relayPort: assignedRelayPort, hostIp, isE4mc: false });
-              }
-            } catch (err) {
-              console.error("[party] Failed to set up relay for console-detected LAN port:", err);
-            }
-          })();
-        }
+        void this.handleLanPortDetected(lanPort);
       }
     }
   }
@@ -417,20 +525,9 @@ class RoomSession {
         const match = text.match(/\[AD\](\d+)\[\/AD\]/);
         if (match) {
           const lanPort = parseInt(match[1], 10);
-          if (lanPort && lanPort !== this._detectedLanPort) {
-            this._detectedLanPort = lanPort;
+          if (lanPort && lanPort !== this._detectedLanPort && !this._e4mcDomain) {
             console.log(`[party] Detected Minecraft LAN broadcast on port ${lanPort}`);
-
-            try {
-              const assignedRelayPort = await this.startLocalRelay(lanPort);
-              const hostIp = getLocalIpAddress();
-              await this.publishTunnel(hostIp, assignedRelayPort);
-              if (this.onLanDetected) {
-                this.onLanDetected({ lanPort, relayPort: assignedRelayPort, hostIp });
-              }
-            } catch (err) {
-              console.error("[party] Failed to set up relay for detected LAN port:", err);
-            }
+            void this.handleLanPortDetected(lanPort);
           }
         }
       });
@@ -590,6 +687,17 @@ class RoomSession {
     if (this._relayServer) {
       this._relayServer.close();
       this._relayServer = null;
+    }
+
+    if (this._upnpClient && this._upnpExtPort) {
+      deletePortMapping(this._upnpClient, { externalPort: this._upnpExtPort }).catch(() => {});
+      this._upnpClient = null;
+      this._upnpExtPort = null;
+    }
+
+    if (this._playitActive) {
+      stopPlayitTunnel();
+      this._playitActive = false;
     }
 
     for (const { socket } of this._guestSockets.values()) {
@@ -1110,6 +1218,14 @@ module.exports = {
   getNetworkInfo,
   checkE4mcStatus,
   installE4mc,
+  convertVanillaToFabricAndInstallE4mc,
+  setupUpnpTunnel,
+  setTunnelMode: (mode) => {
+    if (_activeSession) _activeSession.tunnelMode = mode;
+  },
+  get tunnelMode() {
+    return _activeSession?.tunnelMode || "auto";
+  },
   setGuestInstance: (instanceId, instanceDirectory) => _activeSession?.setGuestInstance(instanceId, instanceDirectory),
   ensureGuestProxyAndBeacon: (host, port) => _activeSession?.ensureGuestProxyAndBeacon(host, port),
   ingestGameLog: (text) => _activeSession?.ingestGameLog(text),

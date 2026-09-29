@@ -1263,6 +1263,7 @@ export interface OnyxBridge {
       peerId: string;
       instanceId?: string | null;
       guestProxyPort?: number | null;
+      tunnelMode?: "auto" | "e4mc" | "upnp" | "playit" | "local";
       room: PartyRoomState | null;
     }>;
     getPendingDeepLink?(): Promise<string | null>;
@@ -1277,11 +1278,14 @@ export interface OnyxBridge {
     }): Promise<{ installed: string[]; failed: Array<{ fileName: string; reason: string }> }>;
     checkE4mc(opts: { instanceId: string }): Promise<{ installed: boolean; supported: boolean; loader: string; version: string; jarName: string | null }>;
     installE4mc(opts: { instanceId: string }): Promise<{ installed: boolean; jarName: string; versionNumber?: string }>;
+    convertVanillaE4mc(opts: { instanceId: string }): Promise<{ success: boolean; loader: string; loaderVersion: string | null; jarName: string }>;
+    setTunnelMode(opts: { mode: "auto" | "e4mc" | "upnp" | "playit" | "local" }): Promise<{ mode: string }>;
+    testUpnp(): Promise<{ success: boolean; externalIp?: string; externalPort?: number; isCgnat?: boolean; error?: string }>;
     networkInfo(): Promise<{ lanIp: string; hasVpn: boolean; physicalIp: string | null; virtualIp: string | null }>;
     onRoomUpdate(callback: (state: PartyRoomState | null) => void): () => void;
     onSignal(callback: (signal: PartySignal) => void): () => void;
     onError(callback: (message: string) => void): () => void;
-    onLanDetected(callback: (info: { lanPort: number; relayPort: number; hostIp: string; isE4mc?: boolean }) => void): () => void;
+    onLanDetected(callback: (info: { lanPort: number; relayPort: number; hostIp: string; isE4mc?: boolean; tunnelType?: "e4mc" | "upnp" | "playit" | "local" }) => void): () => void;
     onSyncProgress(callback: (progress: { index: number; total: number; modName: string; percent: number; status: string }) => void): () => void;
   };
 }

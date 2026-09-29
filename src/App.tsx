@@ -187,19 +187,23 @@ export default function App() {
 
     void (window.onyx?.state?.getPendingDeepLink?.() ?? window.onyx?.party?.getPendingDeepLink?.())?.then((pending) => {
       if (pending) {
+        const trimmed = pending.trim();
         if (
-          pending.includes("party/") ||
-          pending.startsWith("scope://party/") ||
-          pending.startsWith("onyx://party/") ||
-          pending.startsWith("scope://") ||
-          pending.startsWith("onyx://") ||
-          /\b[A-Za-z0-9]{3}[- ][A-Za-z0-9]{3}\b/.test(pending)
+          trimmed.includes("/pack/") ||
+          trimmed.startsWith("scope://pack/") ||
+          trimmed.startsWith("onyx://pack/") ||
+          trimmed.startsWith("pk_")
         ) {
-          setJoinPartyInitialCode(pending);
-          setJoinPartyOpen(true);
-        } else {
-          setImportLinkInitialUrl(pending);
+          setImportLinkInitialUrl(trimmed);
           setImportLinkOpen(true);
+        } else if (
+          trimmed.includes("/party/") ||
+          trimmed.startsWith("scope://party/") ||
+          trimmed.startsWith("onyx://party/") ||
+          /\b[A-Za-z0-9]{3}[- ][A-Za-z0-9]{3}\b/.test(trimmed)
+        ) {
+          setJoinPartyInitialCode(trimmed);
+          setJoinPartyOpen(true);
         }
       }
     }).catch(() => undefined);
@@ -1391,6 +1395,10 @@ export default function App() {
             onJoinParty={(code) => {
               setJoinPartyInitialCode(code || null);
               setJoinPartyOpen(true);
+            }}
+            onImportPack={(urlOrId) => {
+              setImportLinkInitialUrl(urlOrId || null);
+              setImportLinkOpen(true);
             }}
           />
         );

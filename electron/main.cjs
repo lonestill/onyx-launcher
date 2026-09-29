@@ -8,6 +8,7 @@ const {
   Notification,
   shell,
   nativeTheme,
+  Menu,
 } = require("electron");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
@@ -538,7 +539,69 @@ function serializeState() {
   });
 }
 
+function setupApplicationMenu() {
+  if (process.platform === "darwin") {
+    const template = [
+      {
+        label: app.name || "Scope Launcher",
+        submenu: [
+          { role: "about" },
+          { type: "separator" },
+          { role: "services" },
+          { type: "separator" },
+          { role: "hide" },
+          { role: "hideOthers" },
+          { role: "unhide" },
+          { type: "separator" },
+          { role: "quit" },
+        ],
+      },
+      {
+        label: "Edit",
+        submenu: [
+          { role: "undo" },
+          { role: "redo" },
+          { type: "separator" },
+          { role: "cut" },
+          { role: "copy" },
+          { role: "paste" },
+          { role: "pasteAndMatchStyle" },
+          { role: "delete" },
+          { role: "selectAll" },
+        ],
+      },
+      {
+        label: "View",
+        submenu: [
+          { role: "reload" },
+          { role: "forceReload" },
+          { role: "toggleDevTools" },
+          { type: "separator" },
+          { role: "resetZoom" },
+          { role: "zoomIn" },
+          { role: "zoomOut" },
+          { type: "separator" },
+          { role: "togglefullscreen" },
+        ],
+      },
+      {
+        label: "Window",
+        submenu: [
+          { role: "minimize" },
+          { role: "zoom" },
+          { type: "separator" },
+          { role: "front" },
+        ],
+      },
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  } else {
+    Menu.setApplicationMenu(null);
+  }
+}
+
 async function createWindow() {
+  setupApplicationMenu();
   const capturePath = process.env.ONYX_CAPTURE_PATH;
   const bounds = state.settings.launcherBounds || {};
   const launcherWindow = new BrowserWindow({
@@ -595,11 +658,15 @@ async function createWindow() {
   const rendererSession = launcherWindow.webContents.session;
   rendererSession.setPermissionRequestHandler(
     (_webContents, permission, callback) =>
-      callback(permission === "clipboard-sanitized-write"),
+      callback(
+        permission === "clipboard-sanitized-write" ||
+        permission === "clipboard-read",
+      ),
   );
   rendererSession.setPermissionCheckHandler(
     (_webContents, permission) =>
-      permission === "clipboard-sanitized-write",
+      permission === "clipboard-sanitized-write" ||
+      permission === "clipboard-read",
   );
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
@@ -3100,17 +3167,6 @@ function registerIpc() {
         if (!account) throw new Error("Select a saved account");
         if (state.profile.kind === "offline") {
           await syncOfflineSkin(state.profile, instanceDirectory);
-          try {
-            const csl = await checkSkinLoaderStatus(instance, state.settings.gameDirectory);
-            if (csl.supported && !csl.installed) {
-              await installCustomSkinLoader({
-                instance,
-                instancesRoot: state.settings.gameDirectory,
-              });
-            }
-          } catch (e) {
-            console.warn("Could not ensure CustomSkinLoader on play:", e);
-          }
         }
         demo = false;
       }
@@ -3571,28 +3627,57 @@ let pendingDeepLinkUrl = null;
 
 function handleDeepLinkUrl(url) {
   if (!url || typeof url !== "string") return;
+  const trimmed = url.trim();
+
+  // 1. Pack link check FIRST!
+  const isPack =
+    trimmed.includes("/pack/") ||
+    trimmed.startsWith("scope://pack/") ||
+    trimmed.startsWith("onyx://pack/") ||
+    trimmed.startsWith("pk_");
+
+  if (isPack) {
+    const packId = parseShareIdOrUrl(trimmed);
+    if (packId) {
+      if (!mainWindow || !mainWindow.webContents) {
+        pendingDeepLinkUrl = url;
+        return;
+      }
+      void restoreLauncherWindow();
+      send("deep-link:pack", { url, packId });
+      return;
+    }
+  }
+
+  // 2. Party room check: MUST have party/ in scheme/path or match 3-3 code format
   const partyMatch =
-    url.match(/^(?:scope|onyx):\/\/(?:party\/)?([a-zA-Z0-9_-]+)/i) ||
-    url.match(/\/party\/([a-zA-Z0-9_-]+)/i) ||
-    url.match(/\b([A-Za-z0-9]{3})[- ]([A-Za-z0-9]{3})\b/);
+    trimmed.match(/^(?:scope|onyx):\/\/party\/([a-zA-Z0-9_-]+)/i) ||
+    trimmed.match(/\/party\/([a-zA-Z0-9_-]+)/i) ||
+    trimmed.match(/\b([A-Za-z0-9]{3})[- ]([A-Za-z0-9]{3})\b/);
+
   if (partyMatch) {
     const code = (partyMatch[2] ? `${partyMatch[1]}-${partyMatch[2]}` : partyMatch[1]).toUpperCase();
+    if (code !== "PACK") {
+      if (!mainWindow || !mainWindow.webContents) {
+        pendingDeepLinkUrl = url;
+        return;
+      }
+      void restoreLauncherWindow();
+      send("deep-link:party", { url, code });
+      return;
+    }
+  }
+
+  // 3. Fallback pack ID lookup
+  const packId = parseShareIdOrUrl(trimmed);
+  if (packId) {
     if (!mainWindow || !mainWindow.webContents) {
       pendingDeepLinkUrl = url;
       return;
     }
     void restoreLauncherWindow();
-    send("deep-link:party", { url, code });
-    return;
+    send("deep-link:pack", { url, packId });
   }
-  const packId = parseShareIdOrUrl(url);
-  if (!packId) return;
-  if (!mainWindow || !mainWindow.webContents) {
-    pendingDeepLinkUrl = url;
-    return;
-  }
-  void restoreLauncherWindow();
-  send("deep-link:pack", { url, packId });
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -3607,6 +3692,7 @@ if (!gotLock) {
         (arg.startsWith("scope://") ||
           arg.startsWith("onyx://") ||
           arg.includes("/party/") ||
+          arg.includes("/pack/") ||
           /\b[A-Za-z0-9]{3}[- ][A-Za-z0-9]{3}\b/.test(arg)),
     );
     if (deepUrl) {
@@ -3908,6 +3994,41 @@ ipcMain.handle("party:install-e4mc", async (_event, { instanceId } = {}) => {
 });
 
 /**
+ * party:convert-vanilla-e4mc
+ * 1-click converter from Vanilla to Fabric with e4mc mod.
+ */
+ipcMain.handle("party:convert-vanilla-e4mc", async (_event, { instanceId } = {}) => {
+  const instance = state.instances.find((i) => i.id === instanceId);
+  if (!instance) throw new Error("Instance not found");
+  const instancesRoot = state.settings.gameDirectory || path.join(onyxRoot(), "instances");
+  const result = await partySvc.convertVanillaToFabricAndInstallE4mc({ instance, instancesRoot });
+  await saveState();
+  send("instance:updated", structuredClone(instance));
+  return result;
+});
+
+/**
+ * party:set-tunnel-mode
+ * Select preferred tunnel mode: "auto" | "e4mc" | "upnp" | "playit" | "local"
+ */
+ipcMain.handle("party:set-tunnel-mode", async (_event, { mode } = {}) => {
+  partySvc.setTunnelMode(mode);
+  return { mode: partySvc.tunnelMode };
+});
+
+/**
+ * party:test-upnp
+ * Test UPnP IGD discovery and external IP retrieval on host network.
+ */
+ipcMain.handle("party:test-upnp", async () => {
+  const info = partySvc.getNetworkInfo();
+  return partySvc.setupUpnpTunnel({
+    internalPort: 25565,
+    localIp: info.lanIp,
+  });
+});
+
+/**
  * party:network-info
  * Returns system network info including physical LAN IP and VPN active status.
  */
@@ -3926,6 +4047,7 @@ ipcMain.handle("party:status", () => {
     peerId: partySvc.activePeerId,
     instanceId: partySvc.activeInstanceId,
     guestProxyPort: partySvc.guestProxyPort,
+    tunnelMode: partySvc.tunnelMode,
     room: partySvc.getRoomState(),
   };
 });
