@@ -14,7 +14,7 @@ const RULES = [
     severity: "error",
     title: "Incompatible Java version",
     message:
-      "Reset the custom Java path so Onyx can select a compatible version automatically.",
+      "Reset the custom Java path so Scope can select a compatible version automatically.",
   },
   {
     code: "missing-dependency",
@@ -75,7 +75,7 @@ const RULES = [
     severity: "error",
     title: "A game or mod file is corrupted",
     message:
-      "Run automatic repair so Onyx downloads only the corrupted files again.",
+      "Run automatic repair so Scope downloads only the corrupted files again.",
   },
   {
     code: "bad-jvm-arguments",

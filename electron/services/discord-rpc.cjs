@@ -400,10 +400,10 @@ class DiscordRpcService extends EventEmitter {
         large_image: largeImage,
         large_text: largeText,
         small_image: DEFAULT_ICON_URL,
-        small_text: `Onyx Launcher v${this.version}`,
+        small_text: `Scope Launcher v${this.version}`,
       },
       buttons: [
-        { label: "Onyx Launcher", url: GITHUB_REPO_URL },
+        { label: "Scope Launcher", url: GITHUB_REPO_URL },
         { label: "Discord Community", url: DISCORD_COMMUNITY_URL },
       ],
     };
@@ -515,14 +515,14 @@ class DiscordRpcService extends EventEmitter {
     const stateDesc = pageLabels[page] || "Browsing Instances";
 
     const activity = {
-      details: "In Onyx Launcher",
+      details: "In Scope Launcher",
       state: stateDesc,
       assets: {
         large_image: DEFAULT_ICON_URL,
-        large_text: `Onyx Launcher v${this.version}`,
+        large_text: `Scope Launcher v${this.version}`,
       },
       buttons: [
-        { label: "Onyx Launcher", url: GITHUB_REPO_URL },
+        { label: "Scope Launcher", url: GITHUB_REPO_URL },
         { label: "Discord Community", url: DISCORD_COMMUNITY_URL },
       ],
     };

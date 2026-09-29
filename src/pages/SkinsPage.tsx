@@ -529,7 +529,7 @@ export function SkinsPage({
                         className={`wardrobe-equipment-pill ${equipmentType === 'cape' ? 'is-active' : ''}`}
                         onClick={() => setEquipmentType('cape')}
                       >
-                        ✦ Cape
+                        Cape
                       </button>
                       <button
                         type='button'
@@ -560,7 +560,7 @@ export function SkinsPage({
                       {/* Account Capes */}
                       {selectedAccount.capes?.map((cape) => (
                         <option key={cape.id} value={`account-${cape.id}`}>
-                          ✦ {cape.alias || 'Account Cape'}
+                          {cape.alias || 'Account Cape'}
                         </option>
                       ))}
 

@@ -185,7 +185,7 @@ export function LibraryPage({
                   <Share2 size={15} />
                   <div>
                     <strong>{t("library.syncImport")}</strong>
-                    <small>Onyx Share link</small>
+                    <small>Scope Share link</small>
                   </div>
                 </button>
                 <button
@@ -198,7 +198,7 @@ export function LibraryPage({
                   <FileCode size={15} />
                   <div>
                     <strong>{t("library.syncImportFile")}</strong>
-                    <small>.onyxprofile</small>
+                    <small>.scopeprofile</small>
                   </div>
                 </button>
               </div>

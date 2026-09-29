@@ -313,7 +313,21 @@ async function detectCrashAutoFix({
     };
   }
 
-  // 4. Bad JVM Arguments
+  // 4a. Obsolete or Incompatible JVM GC Flags (sanitize instead of full reset)
+  if (
+    /Unrecognized VM option '(?:UseConcMarkSweepGC|CMSIncrementalMode|CMSIncrementalPacing|UseParNewGC|UseZGC|UseShenandoahGC)'|Option UseConcMarkSweepGC was removed in version 14\.0/i.test(
+      combined,
+    )
+  ) {
+    return {
+      type: "sanitize-jvm-gc-flags",
+      titleKey: "crash.autofix.sanitizeGcFlags.title",
+      descKey: "crash.autofix.sanitizeGcFlags.desc",
+      payload: {},
+    };
+  }
+
+  // 4b. Bad JVM Arguments
   if (
     /Unrecognized VM option|Could not create the Java Virtual Machine|Invalid maximum heap size|Improperly specified VM option/i.test(combined)
   ) {
@@ -355,7 +369,10 @@ async function detectCrashAutoFix({
   if (missingDepMatch) {
     const rawDepId = (missingDepMatch[1] || missingDepMatch[2] || "").trim().toLowerCase();
     if (rawDepId && !["minecraft", "java", "forge", "fabricloader", "quilt_loader", "neoforge"].includes(rawDepId)) {
-      const known = KNOWN_DEP_SLUGS[rawDepId];
+      let known = KNOWN_DEP_SLUGS[rawDepId];
+      if (!known && (rawDepId.startsWith("fabric-") || rawDepId === "fabric-api-base")) {
+        known = { slug: "fabric-api", name: "Fabric API" };
+      }
       const projectId = known ? known.slug : rawDepId;
       const depName = known ? known.name : rawDepId;
 
@@ -636,6 +653,20 @@ async function detectCrashAutoFix({
       titleKey: "crash.autofix.disableShaderpack.title",
       descKey: "crash.autofix.disableShaderpack.desc",
       payload: { shaderpack: "active" },
+    };
+  }
+
+  // 12b. disable-early-display (Forge/NeoForge early splash display freeze on Wayland / hybrid graphics)
+  if (
+    /Failed to initialize EarlyDisplay: java\.lang\.IllegalStateException: GLFW error|net\.minecraftforge\.fml\.earlydisplay\.DisplayWindow|neoforge\.earlydisplay|fml\.earlydisplay/i.test(
+      combined,
+    )
+  ) {
+    return {
+      type: "disable-early-display",
+      titleKey: "crash.autofix.disableEarlyDisplay.title",
+      descKey: "crash.autofix.disableEarlyDisplay.desc",
+      payload: {},
     };
   }
 
@@ -922,6 +953,34 @@ async function detectCrashAutoFix({
       titleKey: "crash.autofix.allowSecurityManager.title",
       descKey: "crash.autofix.allowSecurityManager.desc",
       payload: { jvmFlag: "-Djava.security.manager=allow" },
+    };
+  }
+
+  // 40. clean-corrupted-usercache
+  if (
+    /(?:JsonSyntaxException|MalformedJsonException|JsonParseException).*?(?:usercache\.json|realms_persistence\.json)|Failed to load user cache: com\.google\.gson|Expected BEGIN_ARRAY but was STRING at path \$|java\.io\.EOFException: End of input at line 1 column 1 path \$(?:.*usercache)?/i.test(
+      combined,
+    )
+  ) {
+    return {
+      type: "clean-corrupted-usercache",
+      titleKey: "crash.autofix.cleanUsercache.title",
+      descKey: "crash.autofix.cleanUsercache.desc",
+      payload: {},
+    };
+  }
+
+  // 43. repair-servers-dat
+  if (
+    /net\.minecraft\.nbt\.ReportedNbtException: Loading NBT data|Failed to load servers: java\.io\.EOFException|java\.io\.EOFException\s+at net\.minecraft\.nbt\.NbtIo\.readCompressed|servers\.dat.*?(?:EOFException|ZipException|corrupt)/i.test(
+      combined,
+    )
+  ) {
+    return {
+      type: "repair-servers-dat",
+      titleKey: "crash.autofix.repairServersDat.title",
+      descKey: "crash.autofix.repairServersDat.desc",
+      payload: {},
     };
   }
 
@@ -1746,6 +1805,108 @@ async function applyCrashAutoFix({
         success: true,
         action: "allow-security-manager-flag",
         message: "Allowed SecurityManager via JVM argument",
+      };
+    }
+
+    case "clean-corrupted-usercache": {
+      const instDir = path.join(instancesRoot, instance.id);
+      const uc = path.join(instDir, "usercache.json");
+      const rp = path.join(instDir, "realms_persistence.json");
+      if (fs.existsSync(uc)) {
+        await fsp.unlink(uc).catch(async () => {
+          await fsp.rename(uc, `${uc}.corrupt`).catch(() => {});
+        });
+      }
+      if (fs.existsSync(rp)) {
+        await fsp.unlink(rp).catch(() => {});
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "clean-corrupted-usercache",
+        message: "Reset corrupted usercache and realms persistence data",
+      };
+    }
+
+    case "sanitize-jvm-gc-flags": {
+      instance.settings = instance.settings || {};
+      let args = Array.isArray(instance.settings.jvmArguments)
+        ? [...instance.settings.jvmArguments]
+        : [];
+      const isModernJava = instance.javaMajor
+        ? instance.javaMajor >= 14
+        : !/^1\.(?:[1-9]|1[0-6])(?:\.|$)/.test(instance.version || "");
+      if (isModernJava) {
+        args = args.filter(
+          (a) => !/^-XX:\+(?:UseConcMarkSweepGC|CMSIncrementalMode|CMSIncrementalPacing|UseParNewGC)$/i.test(a.trim()),
+        );
+        if (!args.some((a) => /^-XX:\+Use[A-Za-z0-9]+GC$/i.test(a.trim()))) {
+          args.push("-XX:+UseG1GC");
+        }
+      } else {
+        args = args.filter((a) => !/^-XX:\+(?:UseZGC|UseShenandoahGC)$/i.test(a.trim()));
+      }
+      instance.settings.jvmArguments = args;
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "sanitize-jvm-gc-flags",
+        message: "Sanitized incompatible JVM garbage collection flags",
+      };
+    }
+
+    case "disable-early-display": {
+      instance.settings = instance.settings || {};
+      instance.settings.jvmArguments = instance.settings.jvmArguments || [];
+      const flags = ["-Dfml.earlydisplay=false", "-Dneoforge.earlydisplay=false"];
+      for (const f of flags) {
+        if (!instance.settings.jvmArguments.includes(f)) {
+          instance.settings.jvmArguments.push(f);
+        }
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "disable-early-display",
+        message: "Disabled Forge/NeoForge early display window",
+      };
+    }
+
+    case "repair-servers-dat": {
+      const instDir = path.join(instancesRoot, instance.id);
+      const sDat = path.join(instDir, "servers.dat");
+      const sOld = path.join(instDir, "servers.dat_old");
+      let restored = false;
+      if (fs.existsSync(sOld)) {
+        const oldStat = await fsp.stat(sOld).catch(() => null);
+        if (oldStat && oldStat.size > 0) {
+          if (fs.existsSync(sDat)) {
+            await fsp.rename(sDat, `${sDat}.corrupt`).catch(() => {});
+          }
+          await fsp.copyFile(sOld, sDat).catch(() => {});
+          restored = true;
+        }
+      }
+      if (!restored && fs.existsSync(sDat)) {
+        await fsp.unlink(sDat).catch(async () => {
+          await fsp.rename(sDat, `${sDat}.corrupt`).catch(() => {});
+        });
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "repair-servers-dat",
+        message: restored
+          ? "Restored servers.dat from servers.dat_old backup"
+          : "Reset corrupted servers.dat to allow clean regeneration",
       };
     }
 

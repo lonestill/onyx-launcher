@@ -25,10 +25,10 @@ export class ErrorBoundary extends Component<
 
 const FATAL_FALLBACKS: Record<string, string> = {
   "fatal.eyebrow": "Critical failure",
-  "fatal.title": "Onyx encountered an unexpected crash",
+  "fatal.title": "Scope encountered an unexpected crash",
   "fatal.message":
     "A renderer error interrupted the launcher. You can reload the window to resume.",
-  "fatal.restart": "Reload Onyx",
+  "fatal.restart": "Reload Scope",
 };
 
 function FatalScreen({ error }: { error: Error }) {

@@ -10,17 +10,17 @@
 
 A modern, fast, zero-bloat Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Scope is the first Minecraft launcher equipped with a **1-Click Smart Crash Auto-Fixer**, deep mod JAR manifest inspection, automated binary crash bisect diagnostics, 1-click universal migration from all major launchers, and an integrated 3D WebGL skin & cape studio.
 
-[Download the latest release (v2.0.1)](https://github.com/lonestill/scope-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/scope-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
+[Download the latest release (v2.0.1)](https://github.com/lonestill/scope-launcher/releases/latest) · [Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/scope-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
 
-## 💬 Community & Support
+## Community & Support
 
 Got questions, hit a crash, want to suggest a feature, or test upcoming beta builds? Join our official Discord server:
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Scope%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/qHZCehveYp)
 
-- 🚨 **Instant Crash Troubleshooting**: Paste logs and get help directly from the developers.
-- 🧪 **Beta Testing**: Test new engine updates, memory tweaks, and performance tools before release.
-- 💡 **Ideas & Feedback**: Share suggestions and discuss what gets built next.
+- **Instant Crash Troubleshooting**: Paste logs and get help directly from the developers.
+- **Beta Testing**: Test new engine updates, memory tweaks, and performance tools before release.
+- **Ideas & Feedback**: Share suggestions and discuss what gets built next.
 
 ## Screenshots
 
@@ -52,62 +52,62 @@ All screenshots are generated from the current English UI with `npm run capture:
 
 
 
-## ⚡ Feature Comparison
+## Feature Comparison
 
 | Feature | Scope Launcher | Prism Launcher | CurseForge App | Modrinth App |
 | :--- | :---: | :---: | :---: | :---: |
-| **1-Click Smart Crash Auto-Fixer (OOM, Libs, Conflicts, Java)** | **✅ Built-in 1-Click** | ❌ | ❌ | ❌ |
-| **Deep JAR Manifest Inspector (Loader & MC Version)** | **✅ Built-in** | ❌ | ❌ | ❌ |
-| **Automated Mod Bisect (Find Crash Culprit)** | **✅ Built-in** | ❌ | ❌ | ❌ |
-| **Telemetry Flight Recorder & CSV Benchmark Export** | **✅ Built-in** | ❌ | ❌ | ❌ |
-| **Native Crash Log Diagnostics** | **✅ Deep Analysis** | ⚠️ Basic | ❌ | ❌ |
-| **1-Click Universal Migration (from 8+ launchers)** | **✅ Universal** | ⚠️ Partial | ❌ | ❌ |
-| **Built-in 3D WebGL Skin & Cape Studio** | **✅ Three.js** | ❌ | ❌ | ❌ |
-| **Dual Modrinth + CurseForge Search & 1-Click Install** | **✅ Both** | ✅ Both | ❌ CurseForge only | ❌ Modrinth only |
-| **Discord Rich Presence (RPC)** | **✅ Built-in (IPC)** | 🔌 Third-party | ✅ Built-in | ✅ Built-in |
-| **Full Multi-Language Localization (i18n)** | **✅ EN / RU** | ✅ Community | ⚠️ Partial | ⚠️ Partial |
-| **Zero Bloat & Telemetry Opt-out** | **✅ Fully Offline-safe** | ✅ Clean | ❌ Ads & Overwolf | ✅ Clean |
+| **1-Click Smart Crash Auto-Fixer (OOM, Libs, Conflicts, Java)** | **Yes (Built-in)** | No | No | No |
+| **Deep JAR Manifest Inspector (Loader & MC Version)** | **Yes (Built-in)** | No | No | No |
+| **Automated Mod Bisect (Find Crash Culprit)** | **Yes (Built-in)** | No | No | No |
+| **Telemetry Flight Recorder & CSV Benchmark Export** | **Yes (Built-in)** | No | No | No |
+| **Native Crash Log Diagnostics** | **Yes (Deep Analysis)** | Partial | No | No |
+| **1-Click Universal Migration (from 8+ launchers)** | **Yes (Universal)** | Partial | No | No |
+| **Built-in 3D WebGL Skin & Cape Studio** | **Yes (Three.js)** | No | No | No |
+| **Dual Modrinth + CurseForge Search & 1-Click Install** | **Yes (Both)** | Yes (Both) | No (CurseForge only) | No (Modrinth only) |
+| **Discord Rich Presence (RPC)** | **Yes (Built-in)** | Plugin | Yes | Yes |
+| **Full Multi-Language Localization (i18n)** | **Yes (EN / RU)** | Community | Partial | Partial |
+| **Zero Bloat & Telemetry Opt-out** | **Yes (Fully Offline-safe)** | Yes | No (Ads & Overwolf) | Yes |
 
-## 🛠️ Automated Crash Resolution Matrix (Error & Symptom Lookup)
+## Automated Crash Resolution Matrix (Error & Symptom Lookup)
 
 Scope Launcher is the first desktop Minecraft launcher engineered with an automated repair engine for startup crashes and runtime errors. When Minecraft exits with an error code (such as Exit Code 1), Scope analyzes the game log, inspects mod archives, and displays a verified 1-click resolution with transparent user confirmation:
 
 | Crash Symptom / Error Pattern in Logs | Root Cause Identified | Manual Troubleshooting (Traditional) | Scope Launcher 1-Click Resolution |
 | :--- | :--- | :--- | :--- |
-| **Exit Code 1 / Exit Code -1 / Exit Code 255** (Generic Startup Failure) | Incompatible mod, wrong loader, or missing dependency | Hours of manual 50/50 binary disabling | **⚡ Deep JAR Inspection + 1-Click Fix or Bisect** |
-| `java.lang.OutOfMemoryError: Java heap space` / `GC overhead limit exceeded` | Insufficient allocated RAM for modpack | Edit JVM args manually, risk system freeze | **⚡ 1-Click RAM Calculation (+2GB safe buffer)** |
-| `Mod 'xyz' requires {fabric-api}, which is missing!` / `requires {fabric-language-kotlin}` | Missing library / companion dependency | Search Modrinth, match version, download file | **⚡ 1-Click Modrinth Dependency Downloader** |
-| `DuplicateModsFoundException: Duplicate mods found` / `Duplicate mod ID` | Duplicate JAR versions in `mods/` directory | Hunt through hundreds of files in Explorer | **⚡ 1-Click Duplicate Mod Disabler (`.disabled`)** |
-| `OptiFine is not compatible with Sodium` / `MixinTransformerError: Critical injection failure` | Mutually exclusive rendering mods | Game fails with cryptic mixin injection errors | **⚡ 1-Click Mod Conflict Resolver (Disables culprit)** |
-| `com.google.gson.JsonSyntaxException: MalformedJsonException` / `ParsingException` | Damaged or truncated config in `config/` | Manually delete config, lose custom keybinds | **⚡ 1-Click Config Reset (Creates `.bak` & resets)** |
-| `UnsupportedClassVersionError: class file version 65.0` (or 61.0) | Java runtime mismatch (Java 21 required for 1.20.5+) | Install separate JDK, point custom path | **⚡ 1-Click Java Auto-Switch to Temurin 21/17** |
-| `Unrecognized VM option` / `Could not create Java Virtual Machine` | Invalid or obsolete JVM launch flags | Delete flags line by line | **⚡ 1-Click Reset JVM Flags to Safe Defaults** |
-| `java.util.zip.ZipException: zip END header not found` | Corrupted JAR file download | Search corrupted file in logs | **⚡ 1-Click Remove Corrupted JAR & Repair** |
-| `Program link failed` / `Composite shader error` / `ShaderCompileError` | Shaderpack compilation error on launch | Dig through Iris config or reinstall modpack | **⚡ 1-Click Shaderpack Disabler (`shaderPack=OFF`)** |
-| `GLFW error 65542: The driver does not appear to support OpenGL` | OpenGL driver or multi-GPU context initialization | Reinstall GPU drivers or hunt for mesa DLLs | **⚡ 1-Click OpenGL Workaround (`-Dsun.java2d.opengl=false`)** |
-| `GLFW error 65543: GLX: Failed to create context on Wayland` | Linux Wayland compositor / GLX backend mismatch | Set env vars manually in terminal | **⚡ 1-Click Wayland Display Fix (`libglfw.so.3`)** |
-| `org.lwjgl.LWJGLException: X Error: BadWindow` / Display initialization failure | Stale display resolution from disconnected monitor | Manually hunt down `options.txt` and reset | **⚡ 1-Click Video Options Reset (Safe 854x480 windowed)** |
-| `TextureAtlasException: Stitching texture atlas failed` | Outdated or oversized 512x resource pack OOM | Delete resource packs folder | **⚡ 1-Click Resource Pack Disabler (`resourcePacks:[]`)** |
-| `Mod requires fabricloader >=0.16.5, currently 0.15.11` | Outdated modloader version for newer mod requirements | Recreate instance or edit JSON metadata | **⚡ 1-Click Loader Upgrade (Updates loader version)** |
-| `UnsatisfiedLinkError: liblwjgl.dylib (have x86_64, need arm64)` | macOS Rosetta x86_64 Java on Apple Silicon | Download native ARM64 JDK manually | **⚡ 1-Click Switch to Native ARM64 Temurin Java** |
-| `InaccessibleObjectException: Unable to make class accessible to module` | Java 16+ module encapsulation barrier | Manually add `--add-opens` to launch script | **⚡ 1-Click Java Module Flags Injection (`--add-opens`)** |
-| `java.lang.NullPointerException: Ticking entity` | Erroring entity or tile entity ticking loop | Edit world NBT with external MCEdit | **⚡ 1-Click Forge Entity Error Removal (`forge.cfg`)** |
-| `Failed to load player data: Corrupt NBT tag` / `UUID.dat` corruption | Damaged playerdata file crashing server/singleplayer | Search world folder, delete inventory | **⚡ 1-Click Playerdata Quarantine (`<uuid>.dat.bak`)** |
-| `AccessDeniedException: session.lock is locked by another process` | Lingering background Java zombie process | Open Task Manager, hunt Java PIDs | **⚡ 1-Click Session Lock Cleanup & Process Warning** |
-| `Failed to read level.dat` / `EOFException reading level.dat` | Corrupted or truncated 0-byte world descriptor | Delete world or recreate level.dat from scratch | **⚡ 1-Click World Revive from `level.dat_old`** |
-| `MixinTransformerError: Cannot apply @Overwrite` | Mutually exclusive Mixin injection collision | Dig through decompiled code to find conflicting mods | **⚡ 1-Click Mixin Collision Resolver (Disables culprit JAR)** |
-| `NumberFormatException: For input string: "NaN"` in `options.txt` | Corrupted FOV/gamma floating point values | Delete entire options file, lose all keybindings | **⚡ 1-Click Options Sanitizer (Resets invalid values only)** |
-| OptiFine placed in Fabric without OptiFabric | Missing modloader compatibility bridge | Search web for OptiFabric or abandon shaders | **⚡ 1-Click OptiFabric Downloader / Switch to Sodium** |
-| `java.io.IOException: There is not enough space on the disk` | Disk full from gigabytes of `.log.gz` archives | Manually hunt down hidden AppData folders | **⚡ 1-Click Log & Temp Cache Purge (Frees disk space)** |
-| `Language adapter 'kotlin' was not found` | Missing language runtime library for Kotlin/Scala mods | Search and install language adapter manually | **⚡ 1-Click Language Adapter Downloader (`fabric-language-kotlin`)** |
-| `EXCEPTION_ACCESS_VIOLATION` in `nvoglv64.dll` / RTSS hooks | RivaTuner/Discord overlay hook crashing graphics context | Close background apps or reinstall GPU drivers | **⚡ 1-Click Suppress GPU Incompatible Overlay Hooks** |
-| `Could not reserve enough space on 32-Bit Server VM` | 32-bit Java runtime inability to allocate >1.5GB RAM | Hunt down 64-bit JDK installer online | **⚡ 1-Click Switch to Managed 64-Bit Eclipse Temurin** |
-| `Missing required library: QSL` on Quilt modloader | Missing Quilt Standard Libraries dependency | Manually search and install Quilted Fabric API | **⚡ 1-Click QSL / Quilted Fabric API Downloader** |
-| `UnsatisfiedLinkError: Could not load library: lwjgl` | Corrupted or incomplete natives extraction cache | Search and delete hidden natives folder | **⚡ 1-Click Natives Cache Purge & Fresh Re-Extraction** |
-| `UnsupportedOperationException: The Security Manager is deprecated` | Java 18+ SecurityManager deprecation on older mods | Downgrade entire Java runtime to Java 17 | **⚡ 1-Click SecurityManager Flag Injection (`allow`)** |
-| Forge mod placed into Fabric instance (or vice-versa) | Modloader mismatch | Read crash log or guess mod origin | **⚡ Deep JAR Inspector identifies loader & disables mod** |
-| MC 1.16/1.19 mod installed into MC 1.20+ instance | Minecraft version mismatch | Find wrong mod version manually | **⚡ Deep JAR Inspector identifies version mismatch** |
-| Unknown multi-mod conflict / elusive launch freeze | Inter-mod interaction or mixin race condition | Spend days manually testing mod subsets | **⚡ Automated Crash Bisect (Binary search test runs)** |
+| **Exit Code 1 / Exit Code -1 / Exit Code 255** (Generic Startup Failure) | Incompatible mod, wrong loader, or missing dependency | Hours of manual 50/50 binary disabling | **Deep JAR Inspection + 1-Click Fix or Bisect** |
+| `java.lang.OutOfMemoryError: Java heap space` / `GC overhead limit exceeded` | Insufficient allocated RAM for modpack | Edit JVM args manually, risk system freeze | **1-Click RAM Calculation (+2GB safe buffer)** |
+| `Mod 'xyz' requires {fabric-api}, which is missing!` / `requires {fabric-language-kotlin}` | Missing library / companion dependency | Search Modrinth, match version, download file | **1-Click Modrinth Dependency Downloader** |
+| `DuplicateModsFoundException: Duplicate mods found` / `Duplicate mod ID` | Duplicate JAR versions in `mods/` directory | Hunt through hundreds of files in Explorer | **1-Click Duplicate Mod Disabler (`.disabled`)** |
+| `OptiFine is not compatible with Sodium` / `MixinTransformerError: Critical injection failure` | Mutually exclusive rendering mods | Game fails with cryptic mixin injection errors | **1-Click Mod Conflict Resolver (Disables culprit)** |
+| `com.google.gson.JsonSyntaxException: MalformedJsonException` / `ParsingException` | Damaged or truncated config in `config/` | Manually delete config, lose custom keybinds | **1-Click Config Reset (Creates `.bak` & resets)** |
+| `UnsupportedClassVersionError: class file version 65.0` (or 61.0) | Java runtime mismatch (Java 21 required for 1.20.5+) | Install separate JDK, point custom path | **1-Click Java Auto-Switch to Temurin 21/17** |
+| `Unrecognized VM option` / `Could not create Java Virtual Machine` | Invalid or obsolete JVM launch flags | Delete flags line by line | **1-Click Reset JVM Flags to Safe Defaults** |
+| `java.util.zip.ZipException: zip END header not found` | Corrupted JAR file download | Search corrupted file in logs | **1-Click Remove Corrupted JAR & Repair** |
+| `Program link failed` / `Composite shader error` / `ShaderCompileError` | Shaderpack compilation error on launch | Dig through Iris config or reinstall modpack | **1-Click Shaderpack Disabler (`shaderPack=OFF`)** |
+| `GLFW error 65542: The driver does not appear to support OpenGL` | OpenGL driver or multi-GPU context initialization | Reinstall GPU drivers or hunt for mesa DLLs | **1-Click OpenGL Workaround (`-Dsun.java2d.opengl=false`)** |
+| `GLFW error 65543: GLX: Failed to create context on Wayland` | Linux Wayland compositor / GLX backend mismatch | Set env vars manually in terminal | **1-Click Wayland Display Fix (`libglfw.so.3`)** |
+| `org.lwjgl.LWJGLException: X Error: BadWindow` / Display initialization failure | Stale display resolution from disconnected monitor | Manually hunt down `options.txt` and reset | **1-Click Video Options Reset (Safe 854x480 windowed)** |
+| `TextureAtlasException: Stitching texture atlas failed` | Outdated or oversized 512x resource pack OOM | Delete resource packs folder | **1-Click Resource Pack Disabler (`resourcePacks:[]`)** |
+| `Mod requires fabricloader >=0.16.5, currently 0.15.11` | Outdated modloader version for newer mod requirements | Recreate instance or edit JSON metadata | **1-Click Loader Upgrade (Updates loader version)** |
+| `UnsatisfiedLinkError: liblwjgl.dylib (have x86_64, need arm64)` | macOS Rosetta x86_64 Java on Apple Silicon | Download native ARM64 JDK manually | **1-Click Switch to Native ARM64 Temurin Java** |
+| `InaccessibleObjectException: Unable to make class accessible to module` | Java 16+ module encapsulation barrier | Manually add `--add-opens` to launch script | **1-Click Java Module Flags Injection (`--add-opens`)** |
+| `java.lang.NullPointerException: Ticking entity` | Erroring entity or tile entity ticking loop | Edit world NBT with external MCEdit | **1-Click Forge Entity Error Removal (`forge.cfg`)** |
+| `Failed to load player data: Corrupt NBT tag` / `UUID.dat` corruption | Damaged playerdata file crashing server/singleplayer | Search world folder, delete inventory | **1-Click Playerdata Quarantine (`<uuid>.dat.bak`)** |
+| `AccessDeniedException: session.lock is locked by another process` | Lingering background Java zombie process | Open Task Manager, hunt Java PIDs | **1-Click Session Lock Cleanup & Process Warning** |
+| `Failed to read level.dat` / `EOFException reading level.dat` | Corrupted or truncated 0-byte world descriptor | Delete world or recreate level.dat from scratch | **1-Click World Revive from `level.dat_old`** |
+| `MixinTransformerError: Cannot apply @Overwrite` | Mutually exclusive Mixin injection collision | Dig through decompiled code to find conflicting mods | **1-Click Mixin Collision Resolver (Disables culprit JAR)** |
+| `NumberFormatException: For input string: "NaN"` in `options.txt` | Corrupted FOV/gamma floating point values | Delete entire options file, lose all keybindings | **1-Click Options Sanitizer (Resets invalid values only)** |
+| OptiFine placed in Fabric without OptiFabric | Missing modloader compatibility bridge | Search web for OptiFabric or abandon shaders | **1-Click OptiFabric Downloader / Switch to Sodium** |
+| `java.io.IOException: There is not enough space on the disk` | Disk full from gigabytes of `.log.gz` archives | Manually hunt down hidden AppData folders | **1-Click Log & Temp Cache Purge (Frees disk space)** |
+| `Language adapter 'kotlin' was not found` | Missing language runtime library for Kotlin/Scala mods | Search and install language adapter manually | **1-Click Language Adapter Downloader (`fabric-language-kotlin`)** |
+| `EXCEPTION_ACCESS_VIOLATION` in `nvoglv64.dll` / RTSS hooks | RivaTuner/Discord overlay hook crashing graphics context | Close background apps or reinstall GPU drivers | **1-Click Suppress GPU Incompatible Overlay Hooks** |
+| `Could not reserve enough space on 32-Bit Server VM` | 32-bit Java runtime inability to allocate >1.5GB RAM | Hunt down 64-bit JDK installer online | **1-Click Switch to Managed 64-Bit Eclipse Temurin** |
+| `Missing required library: QSL` on Quilt modloader | Missing Quilt Standard Libraries dependency | Manually search and install Quilted Fabric API | **1-Click QSL / Quilted Fabric API Downloader** |
+| `UnsatisfiedLinkError: Could not load library: lwjgl` | Corrupted or incomplete natives extraction cache | Search and delete hidden natives folder | **1-Click Natives Cache Purge & Fresh Re-Extraction** |
+| `UnsupportedOperationException: The Security Manager is deprecated` | Java 18+ SecurityManager deprecation on older mods | Downgrade entire Java runtime to Java 17 | **1-Click SecurityManager Flag Injection (`allow`)** |
+| Forge mod placed into Fabric instance (or vice-versa) | Modloader mismatch | Read crash log or guess mod origin | **Deep JAR Inspector identifies loader & disables mod** |
+| MC 1.16/1.19 mod installed into MC 1.20+ instance | Minecraft version mismatch | Find wrong mod version manually | **Deep JAR Inspector identifies version mismatch** |
+| Unknown multi-mod conflict / elusive launch freeze | Inter-mod interaction or mixin race condition | Spend days manually testing mod subsets | **Automated Crash Bisect (Binary search test runs)** |
 
 ## Highlights
 
@@ -232,7 +232,7 @@ A matching SHA-256 checksum confirms that the downloaded file matches the publis
 
 
 
-## ❓ Frequently Asked Questions (FAQ)
+## Frequently Asked Questions (FAQ)
 
 ### My Minecraft modpack crashes on startup with Exit Code 1. Is there any tool or launcher that finds the broken mod automatically?
 **Yes.** Scope Launcher is specifically designed to eliminate manual crash troubleshooting:
@@ -243,7 +243,7 @@ A matching SHA-256 checksum confirms that the downloaded file matches the publis
 Yes. Unlike traditional launchers that only display raw logs or require external log-uploading pastebins, Scope Launcher includes an integrated **1-Click Smart Crash Auto-Fixer**. It detects common issues (such as allocating too little RAM, running the wrong Java runtime, having corrupted mod archives, missing essential companion libraries like Fabric API, duplicate mod files, conflicting renderers, or damaged config files) and resolves them with a single click after user approval.
 
 ### How do I fix "Mod X requires {fabric-api @ >=...}, which is missing" without manual downloads?
-Scope Launcher detects missing dependency declarations in Fabric, Quilt, and Forge logs in real time. When an unmet dependency error occurs, Scope looks up the official project on Modrinth, matches your exact Minecraft version and loader, and shows a **⚡ Install Missing Dependency** button. Clicking it downloads the required library directly into your instance's `mods/` directory without manual browser searches.
+Scope Launcher detects missing dependency declarations in Fabric, Quilt, and Forge logs in real time. When an unmet dependency error occurs, Scope looks up the official project on Modrinth, matches your exact Minecraft version and loader, and shows a **Install Missing Dependency** button. Clicking it downloads the required library directly into your instance's `mods/` directory without manual browser searches.
 
 ### What is the best alternative to Prism Launcher or CurseForge for modpack crashes and performance?
 **Scope Launcher** is purpose-built as a modern successor to Prism and CurseForge. While Prism only shows raw console logs and CurseForge runs heavy telemetry/ads via Overwolf, Scope provides:

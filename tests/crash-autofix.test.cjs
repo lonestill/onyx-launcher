@@ -11,6 +11,7 @@ const {
   inspectJarMetadata,
   checkModCompatibility,
 } = require("../electron/services/crash-autofix.cjs");
+const { checkInstanceHealth } = require("../electron/services/preflight.cjs");
 
 test("detectCrashAutoFix: detects OutOfMemoryError and proposes memory bump", async () => {
   const instance = {
@@ -74,7 +75,7 @@ java.lang.UnsupportedClassVersionError: net/minecraft/client/main/Main has been 
 test("detectCrashAutoFix: detects bad JVM arguments", async () => {
   const instance = { id: "inst-3" };
   const logContent = `
-Unrecognized VM option 'UseConcMarkSweepGC'
+Unrecognized VM option 'AggressiveOpts'
 Error: Could not create the Java Virtual Machine.
 Error: A fatal exception has occurred. Program will exit.
 `;
@@ -810,6 +811,165 @@ Exception in thread "main" java.lang.module.ResolutionException: Modules _1._21.
   assert.equal(result.success, true);
   assert.equal(fs.existsSync(path.join(modsDir, "1.21.1.jar")), false);
   assert.equal(fs.existsSync(path.join(modsDir, "1.21.1.jar.disabled")), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: clean-corrupted-usercache removes 0-byte or malformed usercache", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-uc-"));
+  const instId = "inst-usercache";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "usercache.json"), "{broken json");
+  await fsp.writeFile(path.join(instDir, "realms_persistence.json"), "{corrupt realms");
+
+  const instance = { id: instId };
+  const logContent = `
+com.google.gson.JsonSyntaxException: java.io.EOFException: End of input at line 1 column 1 path $
+  at net.minecraft.util.UserCache.load(UserCache.java:123)
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent, instancesRoot: tmpRoot });
+
+  assert.ok(fix, "Expected usercache fix to be detected");
+  assert.equal(fix.type, "clean-corrupted-usercache");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(path.join(instDir, "usercache.json")), false);
+  assert.equal(fs.existsSync(path.join(instDir, "realms_persistence.json")), false);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: sanitize-jvm-gc-flags strips obsolete CMS GC on Java 17/21 and adds G1GC", async () => {
+  const instance = {
+    id: "inst-cms",
+    version: "1.20.1",
+    javaMajor: 17,
+    settings: {
+      jvmArguments: [
+        "-Xms2G",
+        "-XX:+UseConcMarkSweepGC",
+        "-XX:+CMSIncrementalMode",
+        "-Dcustom=1",
+      ],
+    },
+  };
+  const logContent = `
+Unrecognized VM option 'UseConcMarkSweepGC'
+Error: Could not create the Java Virtual Machine.
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix, "Expected GC sanitization fix to be detected");
+  assert.equal(fix.type, "sanitize-jvm-gc-flags");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.ok(!instance.settings.jvmArguments.includes("-XX:+UseConcMarkSweepGC"));
+  assert.ok(!instance.settings.jvmArguments.includes("-XX:+CMSIncrementalMode"));
+  assert.ok(instance.settings.jvmArguments.includes("-XX:+UseG1GC"));
+  assert.ok(instance.settings.jvmArguments.includes("-Xms2G"));
+  assert.ok(instance.settings.jvmArguments.includes("-Dcustom=1"));
+});
+
+test("detectCrashAutoFix & apply: disable-early-display injects fml.earlydisplay=false", async () => {
+  const instance = {
+    id: "inst-earlydisplay",
+    loader: "forge",
+    version: "1.20.1",
+    settings: { jvmArguments: ["-Xmx4G"] },
+  };
+  const logContent = `
+Failed to initialize EarlyDisplay: java.lang.IllegalStateException: GLFW error 65543: GLX: Failed to create context on Wayland
+  at net.minecraftforge.fml.earlydisplay.DisplayWindow.<init>(DisplayWindow.java:80)
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix, "Expected early display fix to be detected");
+  assert.equal(fix.type, "disable-early-display");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.ok(instance.settings.jvmArguments.includes("-Dfml.earlydisplay=false"));
+  assert.ok(instance.settings.jvmArguments.includes("-Dneoforge.earlydisplay=false"));
+});
+
+test("detectCrashAutoFix & apply: repair-servers-dat restores from servers.dat_old", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-servers-"));
+  const instId = "inst-servers";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "servers.dat"), "");
+  await fsp.writeFile(path.join(instDir, "servers.dat_old"), "valid-servers-backup-data");
+
+  const instance = { id: instId };
+  const logContent = `
+net.minecraft.nbt.ReportedNbtException: Loading NBT data
+  at net.minecraft.nbt.NbtIo.readCompressed(NbtIo.java:70)
+Failed to load servers: java.io.EOFException
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent, instancesRoot: tmpRoot });
+
+  assert.ok(fix, "Expected servers.dat repair fix to be detected");
+  assert.equal(fix.type, "repair-servers-dat");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  const restoredContent = await fsp.readFile(path.join(instDir, "servers.dat"), "utf8");
+  assert.equal(restoredContent, "valid-servers-backup-data");
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix: maps fabric virtual submodules (fabric-lifecycle-events-v1) to fabric-api", async () => {
+  const instance = { id: "inst-fabric-sub", loader: "fabric", version: "1.20.1" };
+  const logContent = `
+Mod 'trinkets' (trinkets) requires {fabric-lifecycle-events-v1 @ >=2.2.4}, which is missing!
+	A potential solution has been determined:
+		 - Install fabric-lifecycle-events-v1
+`;
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix, "Expected missing dependency fix");
+  assert.equal(fix.type, "install-missing-dependency");
+  assert.equal(fix.payload.depId, "fabric-lifecycle-events-v1");
+  assert.equal(fix.payload.projectId, "fabric-api");
+  assert.equal(fix.payload.depName, "Fabric API");
+});
+
+test("preflight: detects corrupted usercache and servers.dat", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-preflight-"));
+  const instId = "inst-pf";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "usercache.json"), "");
+  await fsp.writeFile(path.join(instDir, "servers.dat"), "not-a-gzip-file");
+
+  const instance = {
+    id: instId,
+    name: "Preflight Test",
+    version: "1.20.1",
+    loader: "fabric",
+    resolvedVersionId: "1.20.1-fabric",
+    status: "ready",
+    settings: {
+      jvmArguments: ["-XX:+UseConcMarkSweepGC"],
+    },
+  };
+
+  const health = await checkInstanceHealth({
+    instance,
+    sharedRoot: tmpRoot,
+    instancesRoot: tmpRoot,
+    inspectJavaFn: async () => ({ executable: "java", major: 17, version: "17.0.1" }),
+    scanModsFn: async () => [],
+  });
+
+  const codes = health.checks.map((c) => c.code);
+  assert.ok(codes.includes("corrupted-usercache"), "Should detect corrupted usercache");
+  assert.ok(codes.includes("corrupted-servers-dat"), "Should detect corrupted servers.dat");
+  assert.ok(codes.includes("obsolete-cms-gc"), "Should detect obsolete CMS GC on Java 17");
 
   await fsp.rm(tmpRoot, { recursive: true, force: true });
 });

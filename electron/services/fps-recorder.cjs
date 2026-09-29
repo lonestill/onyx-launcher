@@ -148,7 +148,7 @@ async function detectFpsRecorder({
     return {
       available: true,
       provider: "onyx-agent",
-      name: "Onyx Probe",
+      name: "Scope Probe",
       executable: agentJar,
       platform,
       installHint: null,
@@ -159,7 +159,7 @@ async function detectFpsRecorder({
   return {
     available: false,
     provider: null,
-    name: platform === "linux" ? "MangoHud" : "Onyx Probe",
+    name: platform === "linux" ? "MangoHud" : "Scope Probe",
     executable: null,
     platform,
     installHint: platform === "linux" ? "sudo pacman -S mangohud" : null,

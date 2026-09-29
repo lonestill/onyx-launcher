@@ -1295,7 +1295,7 @@ export const ru: Record<TranslationKey, string> = {
   "projectDetail.prevScreenshot": "Предыдущий скриншот",
   "projectDetail.nextScreenshot": "Следующий скриншот",
   "crash.autofix.badge": "1-Click Решение",
-  "crash.autofix.btn": "⚡ Починить в 1 клик",
+  "crash.autofix.btn": "Починить в 1 клик",
   "crash.autofix.applying": "Применение фикса…",
   "crash.autofix.applied": "Проблема успешно устранена!",
   "crash.autofix.appliedDesc": "Все необходимые параметры скорректированы. Попробуйте запустить игру снова.",
@@ -1388,5 +1388,13 @@ export const ru: Record<TranslationKey, string> = {
   "crash.autofix.allowSecurityManager.desc": "Мод аварийно завершился из-за ограничений SecurityManager в новой Java. Добавить флаг запуска -Djava.security.manager=allow?",
   "crash.autofix.removeVanillaJar.title": "Удалить ванильный JAR из папки модов",
   "crash.autofix.removeVanillaJar.desc": "Файл {fileName} был ошибочно помещён в папку mods. Модульная система Java конфликтует с ним при загрузке. Отключить этот файл?",
+  "crash.autofix.cleanUsercache.title": "Сбросить повреждённый кэш игроков",
+  "crash.autofix.cleanUsercache.desc": "Удаляет повреждённый usercache.json или данные Realms; игра пересоздаст чистый кэш при запуске.",
+  "crash.autofix.sanitizeGcFlags.title": "Исправить аргументы сборщика мусора",
+  "crash.autofix.sanitizeGcFlags.desc": "Удаляет устаревший CMS GC (-XX:+UseConcMarkSweepGC) на новой Java и включает безопасный G1GC.",
+  "crash.autofix.disableEarlyDisplay.title": "Отключить ранний сплэш-экран (EarlyDisplay)",
+  "crash.autofix.disableEarlyDisplay.desc": "Добавляет -Dfml.earlydisplay=false для устранения крашей GLFW/OpenGL под Wayland и NVIDIA.",
+  "crash.autofix.repairServersDat.title": "Восстановить список серверов",
+  "crash.autofix.repairServersDat.desc": "Восстанавливает servers.dat из резервной копии servers.dat_old или удаляет битый 0-байтовый файл.",
 };
 

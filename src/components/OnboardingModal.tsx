@@ -88,7 +88,7 @@ export function OnboardingModal({
                 <i />
                 <b />
               </span>
-              <strong>ONYX</strong>
+              <strong>SCOPE</strong>
               <div className="onboarding-toolbar">
 
                 <small>{t("onboarding.firstRun")}</small>
@@ -123,7 +123,7 @@ export function OnboardingModal({
                   <p className="eyebrow">{t("onboarding.welcome.eyebrow")}</p>
                   <h1>
                     {t("onboarding.welcome.title")}
-                    <br />{t("onboarding.welcome.into")} <em>Onyx</em>
+                    <br />{t("onboarding.welcome.into")} <em>Scope</em>
                   </h1>
                   <p>{t("onboarding.welcome.description")}</p>
                   <div className="onboarding-features">

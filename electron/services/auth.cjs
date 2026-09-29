@@ -308,7 +308,7 @@ class AuthService {
       };
       const statusMessage =
         response.status === 401
-          ? "Xbox rejected the Microsoft token (401). Remove the account from Onyx and sign in again"
+          ? "Xbox rejected the Microsoft token (401). Remove the account from Scope and sign in again"
           : `Xbox authorization error (${response.status})`;
       throw new Error(
         known[code] ||

@@ -321,12 +321,153 @@ async function checkInstanceHealth({
             },
           });
         }
+
+        // Pre-Flight Doctor: Missing Fabric API companion mod on Fabric
+        if (instance.loader === "fabric") {
+          const activeJars = modFiles.filter((f) => f.endsWith(".jar") && !f.endsWith(".disabled"));
+          const hasFabricApi = activeJars.some((f) => /fabric[-_]api/i.test(f));
+          if (!hasFabricApi && activeJars.length > 0) {
+            checks.push({
+              code: "missing-fabric-api",
+              status: "warning",
+              action: "auto",
+              message: "Fabric API is not installed, but other Fabric mods are present",
+              autoFix: {
+                type: "install-missing-dependency",
+                titleKey: "crash.autofix.installMissingDep.title",
+                descKey: "crash.autofix.installMissingDep.desc",
+                payload: {
+                  depId: "fabric-api",
+                  projectId: "fabric-api",
+                  depName: "Fabric API",
+                },
+              },
+            });
+          }
+        }
       } catch {}
+    }
+
+    // Pre-Flight Doctor: Corrupted or 0-byte usercache.json
+    const usercacheFile = path.join(instanceDirectory, "usercache.json");
+    if (fs.existsSync(usercacheFile)) {
+      let isCorrupt = false;
+      try {
+        const st = await fsp.stat(usercacheFile);
+        if (st.size === 0) {
+          isCorrupt = true;
+        } else {
+          const raw = await fsp.readFile(usercacheFile, "utf8");
+          JSON.parse(raw);
+        }
+      } catch {
+        isCorrupt = true;
+      }
+      if (isCorrupt) {
+        checks.push({
+          code: "corrupted-usercache",
+          status: "warning",
+          action: "auto",
+          message: "usercache.json is corrupted or truncated (causes JsonSyntaxException during startup)",
+          autoFix: {
+            type: "clean-corrupted-usercache",
+            titleKey: "crash.autofix.cleanUsercache.title",
+            descKey: "crash.autofix.cleanUsercache.desc",
+            payload: {},
+          },
+        });
+      }
+    }
+
+    // Pre-Flight Doctor: Corrupted or 0-byte servers.dat
+    const serversDat = path.join(instanceDirectory, "servers.dat");
+    if (fs.existsSync(serversDat)) {
+      let isCorrupt = false;
+      try {
+        const st = await fsp.stat(serversDat);
+        if (st.size === 0) {
+          isCorrupt = true;
+        } else if (st.size >= 2) {
+          const fd = await fsp.open(serversDat, "r");
+          const buf = Buffer.alloc(2);
+          await fd.read(buf, 0, 2, 0);
+          await fd.close();
+          if (buf[0] !== 0x1f || buf[1] !== 0x8b) {
+            isCorrupt = true;
+          }
+        }
+      } catch {
+        isCorrupt = true;
+      }
+      if (isCorrupt) {
+        checks.push({
+          code: "corrupted-servers-dat",
+          status: "warning",
+          action: "auto",
+          message: "servers.dat is corrupted or 0-byte (crashes Minecraft NBT loader)",
+          autoFix: {
+            type: "repair-servers-dat",
+            titleKey: "crash.autofix.repairServersDat.title",
+            descKey: "crash.autofix.repairServersDat.desc",
+            payload: {},
+          },
+        });
+      }
     }
   }
 
   const requiredJava =
     instance.javaMajor || requiredJavaForMinecraft(instance.version);
+
+  // Pre-Flight Doctor: Obsolete CMS GC on modern Java or modern GC on Java 8
+  const jvmArgs = (instance.settings?.jvmArguments || []).join(" ");
+  if (requiredJava >= 14 && /-XX:\+(?:UseConcMarkSweepGC|CMSIncrementalMode|CMSIncrementalPacing|UseParNewGC)/i.test(jvmArgs)) {
+    checks.push({
+      code: "obsolete-cms-gc",
+      status: "warning",
+      action: "auto",
+      message: "Obsolete CMS GC arguments detected on Java 14+ (crashes with 'Unrecognized VM option')",
+      autoFix: {
+        type: "sanitize-jvm-gc-flags",
+        titleKey: "crash.autofix.sanitizeGcFlags.title",
+        descKey: "crash.autofix.sanitizeGcFlags.desc",
+        payload: {},
+      },
+    });
+  } else if (requiredJava <= 8 && /-XX:\+(?:UseZGC|UseShenandoahGC)/i.test(jvmArgs)) {
+    checks.push({
+      code: "incompatible-zgc-java8",
+      status: "warning",
+      action: "auto",
+      message: "Modern GC flags (ZGC/Shenandoah) are incompatible with Java 8",
+      autoFix: {
+        type: "sanitize-jvm-gc-flags",
+        titleKey: "crash.autofix.sanitizeGcFlags.title",
+        descKey: "crash.autofix.sanitizeGcFlags.desc",
+        payload: {},
+      },
+    });
+  }
+
+  // Pre-Flight Doctor: Linux Wayland GLFW early display freeze on Forge/NeoForge
+  if (process.platform === "linux" && ["forge", "neoforge"].includes(instance.loader)) {
+    const isWayland = Boolean(process.env.WAYLAND_DISPLAY || process.env.XDG_SESSION_TYPE === "wayland");
+    if (isWayland && !jvmArgs.includes("fml.earlydisplay=false")) {
+      checks.push({
+        code: "wayland-early-display",
+        status: "warning",
+        action: "auto",
+        message: "Forge/NeoForge early display window often freezes or crashes under Linux Wayland",
+        autoFix: {
+          type: "disable-early-display",
+          titleKey: "crash.autofix.disableEarlyDisplay.title",
+          descKey: "crash.autofix.disableEarlyDisplay.desc",
+          payload: {},
+        },
+      });
+    }
+  }
+
   const preferredJava = settings.javaPath || instance.javaPath || "";
   if (preferredJava) {
     const java = await inspectJavaFn(preferredJava);

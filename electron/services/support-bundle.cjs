@@ -161,7 +161,7 @@ async function createSupportBundle({
       );
       archive.append(
         [
-          "Onyx Launcher support bundle",
+          "Scope Launcher support bundle",
           "",
           "This archive is safe to share for troubleshooting.",
           "Account tokens, the account name, saved servers, and personal home paths are not included.",

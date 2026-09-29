@@ -93,7 +93,7 @@ export function CommunityPage({
         fetchReviews();
       }
     } catch {
-      onNotify?.("warning", isRu ? "Ошибка отправки" : "Submission failed", isRu ? "Не удалось связаться с сервером." : "Could not reach Onyx Hub.");
+      onNotify?.("warning", isRu ? "Ошибка отправки" : "Submission failed", isRu ? "Не удалось связаться с сервером." : "Could not reach Scope Hub.");
     } finally {
       setSubmitting(false);
     }
@@ -332,7 +332,7 @@ export function CommunityPage({
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
           <div style={{ background: "var(--surface)", border: "1px solid var(--line-strong)", borderRadius: 12, padding: 24, width: "100%", maxWidth: 460 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "var(--text)" }}>
-              {isRu ? "Отправить отзыв в Onyx Hub" : "Submit Feedback to Onyx Hub"}
+              {isRu ? "Отправить отзыв в Scope Hub" : "Submit Feedback to Scope Hub"}
             </h3>
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>

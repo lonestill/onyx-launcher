@@ -97,7 +97,7 @@ export function buildSupportReport({
   logs: string;
 }) {
   const lines = [
-    "Onyx Launcher support report",
+    "Scope Launcher support report",
     `Instance: ${instance.name} (${instance.id})`,
     `Minecraft: ${instance.version}`,
     `Loader: ${instance.loader}`,

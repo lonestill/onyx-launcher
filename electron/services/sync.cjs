@@ -70,11 +70,11 @@ function createSyncProfile({ instance, mods }) {
 function validateSyncProfile(value) {
   if (
     value?.schema !== SYNC_SCHEMA ||
-    value.launcher !== "onyx" ||
+    (value.launcher !== "onyx" && value.launcher !== "scope") ||
     !value.instance ||
     !Array.isArray(value.mods)
   ) {
-    throw new Error("This is not a supported Onyx Sync profile");
+    throw new Error("This is not a supported Scope Sync profile");
   }
   const source = value.instance;
   const name = String(source.name || "Imported profile")
@@ -106,7 +106,7 @@ function validateSyncProfile(value) {
       name,
       version,
       loader: String(source.loader || "Vanilla").slice(0, 80),
-      description: String(source.description || "Onyx Sync profile").slice(
+      description: String(source.description || "Scope Sync profile").slice(
         0,
         180,
       ),

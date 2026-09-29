@@ -2085,7 +2085,7 @@ function registerIpc() {
     const instance = findInstance(id);
     const safeName =
       instance.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim() ||
-      "Onyx instance";
+      "Scope instance";
     const date = new Date().toISOString().slice(0, 10);
     const result = await dialog.showSaveDialog(mainWindow, {
       title: `Performance — ${instance.name}`,
@@ -2115,15 +2115,15 @@ function registerIpc() {
     if (runningGames.has(id)) throw new Error("Stop the game first");
     const safeName =
       instance.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim() ||
-      "Onyx instance";
+      "Scope instance";
     const date = new Date().toISOString().slice(0, 10);
     const result = await dialog.showSaveDialog(mainWindow, {
       title: `Backup — ${instance.name}`,
       defaultPath: path.join(
         app.getPath("documents"),
-        `${safeName}-${date}.onyxpack`,
+        `${safeName}-${date}.scopepack`,
       ),
-      filters: [{ name: "Onyx backup", extensions: ["onyxpack"] }],
+      filters: [{ name: "Scope backup", extensions: ["scopepack", "onyxpack"] }],
     });
     if (result.canceled || !result.filePath) return null;
     const backup = await createInstanceBackup({
@@ -2150,9 +2150,9 @@ function registerIpc() {
   ipcMain.handle("instance:import-backup", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ["openFile"],
-      title: "Import Onyx backup",
+      title: "Import Scope backup",
       filters: [
-        { name: "Onyx backup", extensions: ["onyxpack"] },
+        { name: "Scope backup", extensions: ["scopepack", "onyxpack"] },
         { name: "ZIP archive", extensions: ["zip"] },
       ],
     });
@@ -2192,15 +2192,15 @@ function registerIpc() {
     const profile = createSyncProfile({ instance, mods });
     const safeName =
       instance.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim() ||
-      "Onyx profile";
+      "Scope profile";
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: `Onyx Sync — ${instance.name}`,
+      title: `Scope Sync — ${instance.name}`,
       defaultPath: path.join(
         app.getPath("documents"),
-        `${safeName}.onyxprofile`,
+        `${safeName}.scopeprofile`,
       ),
       filters: [
-        { name: "Onyx Sync profile", extensions: ["onyxprofile"] },
+        { name: "Scope Sync profile", extensions: ["scopeprofile", "onyxprofile"] },
       ],
     });
     if (result.canceled || !result.filePath) return null;
@@ -2252,7 +2252,7 @@ function registerIpc() {
             progress: total
               ? Math.round((received / total) * 100)
               : Math.round((completed / Math.max(count, 1)) * 100),
-            message: `Onyx Sync: ${current}`,
+            message: `Scope Sync: ${current}`,
           }),
       });
       instance.modCount = installed.installed;
@@ -2269,7 +2269,7 @@ function registerIpc() {
     } catch (error) {
       instance.status = instance.resolvedVersionId ? "ready" : "error";
       instance.lastError =
-        error instanceof Error ? error.message : "Onyx Sync import error";
+        error instanceof Error ? error.message : "Scope Sync import error";
       await saveState();
       send("instance:updated", structuredClone(instance));
       throw error;
@@ -2279,9 +2279,9 @@ function registerIpc() {
   ipcMain.handle("instance:sync-import", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ["openFile"],
-      title: "Import Onyx Sync profile",
+      title: "Import Scope Sync profile",
       filters: [
-        { name: "Onyx Sync profile", extensions: ["onyxprofile"] },
+        { name: "Scope Sync profile", extensions: ["scopeprofile", "onyxprofile"] },
         { name: "JSON", extensions: ["json"] },
       ],
     });
@@ -2289,7 +2289,7 @@ function registerIpc() {
     const profilePath = result.filePaths[0];
     const stats = await fsp.stat(profilePath);
     if (stats.size > 5 * 1024 * 1024) {
-      throw new Error("The Onyx Sync profile is too large");
+      throw new Error("The Scope Sync profile is too large");
     }
     const profile = validateSyncProfile(
       JSON.parse(await fsp.readFile(profilePath, "utf8")),
@@ -2361,7 +2361,7 @@ function registerIpc() {
   ipcMain.handle("system:choose-directory", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ["openDirectory", "createDirectory"],
-      title: "Onyx game instances directory",
+      title: "Scope game instances directory",
     });
     return result.canceled ? null : result.filePaths[0];
   });
@@ -2396,10 +2396,10 @@ function registerIpc() {
   ipcMain.handle("system:export-diagnostics", async () => {
     const diagnostics = await buildDiagnostics();
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: "Save Onyx diagnostics",
+      title: "Save Scope diagnostics",
       defaultPath: path.join(
         app.getPath("documents"),
-        `onyx-diagnostics-${new Date().toISOString().slice(0, 10)}.json`,
+        `scope-diagnostics-${new Date().toISOString().slice(0, 10)}.json`,
       ),
       filters: [{ name: "JSON report", extensions: ["json"] }],
     });
@@ -3290,7 +3290,7 @@ function registerIpc() {
                 severity: "warning",
                 title: "Recently changed mods may be responsible",
                 message:
-                  "Mods changed after the last successful launch. Onyx can temporarily disable them and retry.",
+                  "Mods changed after the last successful launch. Scope can temporarily disable them and retry.",
                 suspects: suspects.slice(0, 12),
               });
             }
@@ -3497,10 +3497,10 @@ function registerIpc() {
           .replace(/^-+|-+$/g, "")
           .slice(0, 42) || "instance";
       const result = await dialog.showSaveDialog(mainWindow, {
-        title: "Save Onyx diagnostics bundle",
+        title: "Save Scope diagnostics bundle",
         defaultPath: path.join(
           app.getPath("documents"),
-          `onyx-support-${safeName}-${new Date().toISOString().slice(0, 10)}.zip`,
+          `scope-support-${safeName}-${new Date().toISOString().slice(0, 10)}.zip`,
         ),
         filters: [{ name: "ZIP diagnostics bundle", extensions: ["zip"] }],
       });

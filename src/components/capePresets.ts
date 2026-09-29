@@ -142,7 +142,7 @@ export const CAPE_PRESETS: CapePreset[] = [
   },
   {
     id: 'onyx',
-    name: '✦ Onyx Obsidian',
+    name: 'Scope Obsidian',
     type: 'preset',
     getDataUrl: () =>
       createCapeCanvas(

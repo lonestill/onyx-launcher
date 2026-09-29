@@ -1554,24 +1554,24 @@ test("FPS Recorder reports low and unstable sessions without false stable state"
   );
 });
 
-test("FPS provider detection selects Onyx Probe on Windows", async () => {
+test("FPS provider detection selects Scope Probe on Windows", async () => {
   const status = await detectFpsRecorder({
     platform: "win32",
     env: {},
   });
   assert.equal(status.available, true);
   assert.equal(status.provider, "onyx-agent");
-  assert.equal(status.name, "Onyx Probe");
+  assert.equal(status.name, "Scope Probe");
 });
 
-test("FPS provider detection falls back to Onyx Probe when native hook is missing", async () => {
+test("FPS provider detection falls back to Scope Probe when native hook is missing", async () => {
   const status = await detectFpsRecorder({
     platform: "darwin",
     env: {},
   });
   assert.equal(status.available, true);
   assert.equal(status.provider, "onyx-agent");
-  assert.equal(status.name, "Onyx Probe");
+  assert.equal(status.name, "Scope Probe");
 });
 
 test("Mod profiles save and apply mod states without touching new mods", async () => {

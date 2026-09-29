@@ -1245,7 +1245,7 @@ export function InstancePage({
       )}${unit} (${formatDelta(delta)})`;
     };
     const report = [
-      `Onyx Performance · ${displayName}`,
+      `Scope Performance · ${displayName}`,
       `${t("instancePage.performance.reportCurrent")}: ${formatSessionDate(
         currentPerformanceSession,
         locale,
@@ -2635,7 +2635,7 @@ export function InstancePage({
                         provider:
                           fpsRecorderStatus.platform === "linux"
                             ? "MangoHud"
-                            : "Onyx Probe",
+                            : "Scope Probe",
                       })}
               </small>
               {fpsRecorderStatus &&
@@ -2784,7 +2784,7 @@ export function InstancePage({
                               latestPerformance.fps.provider ===
                               "mangohud"
                                 ? "MangoHud"
-                                : "Onyx Probe",
+                                : "Scope Probe",
                           },
                         )}
                       />

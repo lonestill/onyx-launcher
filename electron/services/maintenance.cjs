@@ -176,7 +176,7 @@ function cleanImportedInstance(manifest, instanceId) {
     version: String(source.version || "1.21.1"),
     loader: String(source.loader || "Vanilla"),
     description: String(
-      source.description || "Instance restored from an Onyx backup",
+      source.description || "Instance restored from a Scope backup",
     ).slice(0, 180),
     color: ["lime", "amber", "violet", "cyan", "rose"].includes(source.color)
       ? source.color
@@ -208,10 +208,10 @@ async function importInstanceBackup({
 }) {
   const manifest = await readZipJson(backupPath, "onyx-instance.json");
   if (
-    manifest?.launcher !== "onyx" ||
+    (manifest?.launcher !== "onyx" && manifest?.launcher !== "scope") ||
     manifest?.formatVersion !== BACKUP_FORMAT_VERSION
   ) {
-    throw new Error("This is not a supported Onyx backup");
+    throw new Error("This is not a supported Scope backup");
   }
 
   const destination = safeChild(instancesRoot, instanceId);

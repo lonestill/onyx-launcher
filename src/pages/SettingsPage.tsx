@@ -283,7 +283,7 @@ export function SettingsPage({
               <b />
             </span>
             <div>
-              <strong>Onyx Launcher</strong>
+              <strong>Scope Launcher</strong>
               <small>{packageMetadata.version} · {t("settings.channel")}</small>
             </div>
           </div>

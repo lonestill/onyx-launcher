@@ -26,7 +26,7 @@ function csvField(value) {
 
 function providerLabel(provider) {
   if (provider === "mangohud") return "MangoHud";
-  if (provider === "onyx-agent") return "Onyx Probe";
+  if (provider === "onyx-agent") return "Scope Probe";
   return "";
 }
 

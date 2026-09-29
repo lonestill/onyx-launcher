@@ -1293,7 +1293,7 @@ export const en = {
   "projectDetail.prevScreenshot": "Previous screenshot",
   "projectDetail.nextScreenshot": "Next screenshot",
   "crash.autofix.badge": "1-Click Resolution",
-  "crash.autofix.btn": "⚡ 1-Click Auto-Fix",
+  "crash.autofix.btn": "1-Click Auto-Fix",
   "crash.autofix.applying": "Applying auto-fix…",
   "crash.autofix.applied": "Issue resolved successfully!",
   "crash.autofix.appliedDesc": "All required settings have been adjusted. You can now relaunch the game.",
@@ -1386,6 +1386,14 @@ export const en = {
   "crash.autofix.allowSecurityManager.desc": "Mod failed on modern Java SecurityManager restrictions. Inject -Djava.security.manager=allow launch argument?",
   "crash.autofix.removeVanillaJar.title": "Remove Vanilla Game JAR from Mods",
   "crash.autofix.removeVanillaJar.desc": "Game archive {fileName} was accidentally placed into the mods folder. Java's module system conflicts with duplicate game packages. Disable this file?",
+  "crash.autofix.cleanUsercache.title": "Reset Corrupted Player Cache",
+  "crash.autofix.cleanUsercache.desc": "Removes damaged usercache.json or realms persistence files; Minecraft will regenerate clean files on start.",
+  "crash.autofix.sanitizeGcFlags.title": "Sanitize Incompatible GC Flags",
+  "crash.autofix.sanitizeGcFlags.desc": "Removes obsolete CMS GC flags on modern Java and switches to safe G1GC.",
+  "crash.autofix.disableEarlyDisplay.title": "Disable Early Display Window",
+  "crash.autofix.disableEarlyDisplay.desc": "Adds -Dfml.earlydisplay=false to resolve GLFW/OpenGL issues under Wayland and hybrid graphics.",
+  "crash.autofix.repairServersDat.title": "Restore Server List",
+  "crash.autofix.repairServersDat.desc": "Restores servers.dat from servers.dat_old backup or resets damaged 0-byte file.",
 } as const;
 
 export type TranslationKey = keyof typeof en;
