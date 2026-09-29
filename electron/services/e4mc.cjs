@@ -43,6 +43,45 @@ async function checkE4mcStatus(instance, instancesRoot) {
   };
 }
 
+async function ensureFabricApi({ gameVersion, modsDir, signal }) {
+  try {
+    const existing = await fsp.readdir(modsDir).catch(() => []);
+    const hasFabricApi = existing.some((f) => /^fabric-api.*\.jar$/i.test(f));
+    if (hasFabricApi) return;
+
+    console.log(`[e4mc] fabric-api missing for Fabric ${gameVersion}, auto-downloading from Modrinth...`);
+    const url = `https://api.modrinth.com/v2/project/fabric-api/version?loaders=${encodeURIComponent(
+      JSON.stringify(["fabric", "quilt"])
+    )}&game_versions=${encodeURIComponent(JSON.stringify([gameVersion]))}`;
+
+    let versions = await fetchJson(url, { signal });
+    if (!Array.isArray(versions) || versions.length === 0) {
+      const allUrl = `https://api.modrinth.com/v2/project/fabric-api/version?loaders=${encodeURIComponent(
+        JSON.stringify(["fabric"])
+      )}`;
+      versions = await fetchJson(allUrl, { signal });
+    }
+
+    if (Array.isArray(versions) && versions.length > 0) {
+      const best = versions[0];
+      const file = best.files?.find((f) => f.primary) || best.files?.[0];
+      if (file && file.url) {
+        const dest = path.join(modsDir, file.filename);
+        await downloadFile({
+          url: file.url,
+          destination: dest,
+          sha1: file.hashes?.sha1,
+          size: file.size,
+          signal,
+        });
+        console.log(`[e4mc] Successfully installed dependency: ${file.filename}`);
+      }
+    }
+  } catch (err) {
+    console.warn("[e4mc] Failed to auto-install fabric-api dependency:", err.message);
+  }
+}
+
 async function installE4mc({ instance, instancesRoot, signal, onProgress }) {
   const supported = isLoaderSupported(instance.loader);
   if (!supported) {
@@ -110,6 +149,11 @@ async function installE4mc({ instance, instancesRoot, signal, onProgress }) {
     onProgress,
     signal,
   });
+
+  // Automatically install fabric-api dependency for Fabric/Quilt if missing
+  if (loaderKey === "fabric" || loaderKey === "quilt") {
+    await ensureFabricApi({ gameVersion: instance.version, modsDir, signal });
+  }
 
   return {
     installed: true,
