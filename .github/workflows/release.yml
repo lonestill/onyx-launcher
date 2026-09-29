@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 12 * * 5"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Explicit version to release (e.g. 2.0.0)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -67,11 +72,22 @@ jobs:
       - name: Validate source and renderer build
         run: npm run check
 
-      - name: Bump patch version
+      - name: Determine release version
         id: version
         shell: bash
         run: |
-          npm version patch --no-git-tag-version
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            npm version "$INPUT_VERSION" --no-git-tag-version --allow-same-version
+          else
+            CURRENT_VERSION="$(node -p "require('./package.json').version")"
+            if ! git rev-parse --verify --quiet "refs/tags/v${CURRENT_VERSION}"; then
+              echo "Releasing current unreleased version v${CURRENT_VERSION}"
+            else
+              echo "Tag v${CURRENT_VERSION} already exists, bumping patch..."
+              npm version patch --no-git-tag-version
+            fi
+          fi
           VERSION="$(node -p "require('./package.json').version")"
           TAG="v${VERSION}"
           if git rev-parse --verify --quiet "refs/tags/${TAG}"; then
@@ -88,9 +104,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json
-          git commit -m "chore(release): ${TAG}"
-          git tag -a "${TAG}" -m "Onyx Launcher ${TAG}"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(release): ${TAG}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+          git tag -a "${TAG}" -m "Scope Launcher ${TAG}"
           git push origin "${TAG}"
 
   linux:
@@ -233,7 +251,7 @@ jobs:
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "Onyx Launcher ${VERSION}"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "Scope Launcher ${VERSION}"
           for file in release-assets/*; do
             echo "Uploading asset: $file"
             gh release upload "$TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber
