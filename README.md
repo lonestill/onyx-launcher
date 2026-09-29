@@ -10,7 +10,7 @@
 
 A modern, fast, zero-bloat Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Scope is the first Minecraft launcher equipped with a **1-Click Smart Crash Auto-Fixer**, deep mod JAR manifest inspection, automated binary crash bisect diagnostics, 1-click universal migration from all major launchers, and an integrated 3D WebGL skin & cape studio.
 
-[Download the latest release (v2.0.0)](https://github.com/lonestill/scope-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/scope-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
+[Download the latest release (v2.0.1)](https://github.com/lonestill/scope-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/scope-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
 
 ## 💬 Community & Support
 
@@ -183,8 +183,8 @@ scoop install onyx/scope-launcher
 **Direct download:**
 
 Download an installer or portable archive from the [latest GitHub Release](https://github.com/lonestill/scope-launcher/releases/latest):
-- NSIS installer: `Scope.Launcher.Setup.2.0.0.exe`
-- Portable executable: `Scope.Launcher.2.0.0.exe`
+- NSIS installer: `Scope.Launcher.Setup.2.0.1.exe`
+- Portable executable: `Scope.Launcher.2.0.1.exe`
 
 Windows builds are unsigned, so SmartScreen may display a warning on first launch.
 
@@ -200,8 +200,8 @@ yay -S scope-launcher-bin
 **Direct download:**
 
 Download from the [latest GitHub Release](https://github.com/lonestill/scope-launcher/releases/latest):
-- AppImage: `Scope-Launcher-2.0.0-x86_64.AppImage`
-- Portable archive: `Scope-Launcher-2.0.0-linux-x64.tar.gz`
+- AppImage: `Scope-Launcher-2.0.1-x86_64.AppImage`
+- Portable archive: `Scope-Launcher-2.0.1-linux-x64.tar.gz`
 
 
 ### Verify a download
