@@ -3856,7 +3856,7 @@ process.on("unhandledRejection", async (reason) => {
  * input: { displayName?, instanceId? }
  * returns: { code, deepLink, webLink, expiresAt, peerId }
  */
-ipcMain.handle("party:create", async (_event, { displayName, instanceId } = {}) => {
+ipcMain.handle("party:create", async (_event, { displayName, instanceId, tunnelMode } = {}) => {
   let manifest = null;
   if (instanceId) {
     const instance = state.instances.find((i) => i.id === instanceId);
@@ -3881,7 +3881,12 @@ ipcMain.handle("party:create", async (_event, { displayName, instanceId } = {}) 
     }
   }
 
-  const result = await partySvc.createRoom({ displayName, instanceId, instanceManifest: manifest });
+  const result = await partySvc.createRoom({
+    displayName,
+    instanceId,
+    instanceManifest: manifest,
+    tunnelMode,
+  });
 
   wirePartySession();
 

@@ -1249,7 +1249,7 @@ export interface OnyxBridge {
     callback: (data: { code: string; url: string }) => void,
   ): () => void;
   party: {
-    create(opts?: { displayName?: string; instanceId?: string }): Promise<{
+    create(opts?: { displayName?: string; instanceId?: string; tunnelMode?: "auto" | "e4mc" | "upnp" | "playit" | "local" }): Promise<{
       code: string;
       deepLink: string;
       webLink: string;

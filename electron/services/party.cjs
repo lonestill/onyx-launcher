@@ -164,7 +164,7 @@ function generatePeerId() {
  * One instance at a time (host OR guest). Call destroy() to clean up.
  */
 class RoomSession {
-  constructor({ code, peerId, isHost, hubUrl = DEFAULT_HUB_URL }) {
+  constructor({ code, peerId, isHost, hubUrl = DEFAULT_HUB_URL, tunnelMode }) {
     this.code = code;
     this.peerId = peerId;
     this.isHost = isHost;
@@ -181,7 +181,7 @@ class RoomSession {
     this._e4mcDomain = null;
 
     // Tunnel orchestration
-    this.tunnelMode = "auto"; // "auto" | "e4mc" | "upnp" | "playit" | "local"
+    this.tunnelMode = tunnelMode || _defaultTunnelMode || "auto"; // "auto" | "e4mc" | "upnp" | "playit" | "local"
     this._upnpClient = null;
     this._upnpExtPort = null;
     this._playitActive = false;
@@ -721,6 +721,7 @@ class RoomSession {
 let _storageDir = null;
 let _activePeerId = null;
 let _activeSession = null;
+let _defaultTunnelMode = "auto";
 
 function getActivePeerId() {
   if (!_activePeerId) {
@@ -853,7 +854,7 @@ async function restoreSavedSession() {
 }
 
 /** Create a new party room (host). Returns { code, deepLink, expiresAt } */
-async function createRoom({ displayName, instanceId, instanceManifest, hubUrl = DEFAULT_HUB_URL } = {}) {
+async function createRoom({ displayName, instanceId, instanceManifest, hubUrl = DEFAULT_HUB_URL, tunnelMode } = {}) {
   if (_activeSession) await leaveRoom();
 
   const currentPeerId = getActivePeerId();
@@ -876,6 +877,7 @@ async function createRoom({ displayName, instanceId, instanceManifest, hubUrl = 
     peerId: currentPeerId,
     isHost: true,
     hubUrl,
+    tunnelMode: tunnelMode || _defaultTunnelMode,
   });
   _activeSession.instanceId = instanceId || null;
 
@@ -1221,10 +1223,11 @@ module.exports = {
   convertVanillaToFabricAndInstallE4mc,
   setupUpnpTunnel,
   setTunnelMode: (mode) => {
+    _defaultTunnelMode = mode;
     if (_activeSession) _activeSession.tunnelMode = mode;
   },
   get tunnelMode() {
-    return _activeSession?.tunnelMode || "auto";
+    return _activeSession?.tunnelMode || _defaultTunnelMode || "auto";
   },
   setGuestInstance: (instanceId, instanceDirectory) => _activeSession?.setGuestInstance(instanceId, instanceDirectory),
   ensureGuestProxyAndBeacon: (host, port) => _activeSession?.ensureGuestProxyAndBeacon(host, port),

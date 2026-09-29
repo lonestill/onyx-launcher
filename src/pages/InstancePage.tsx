@@ -57,7 +57,9 @@ import {
   Globe,
   Radio,
   Zap,
+  HelpCircle,
 } from "lucide-react";
+import { CreatePartyModal } from "../components/CreatePartyModal";
 import { useSearchFocus } from "../hooks/useSearchFocus";
 import { useI18n } from "../i18n";
 import type {
@@ -259,6 +261,14 @@ export function InstancePage({
   const [installingE4mc, setInstallingE4mc] = useState(false);
   const [convertingVanilla, setConvertingVanilla] = useState(false);
   const [testingUpnp, setTestingUpnp] = useState(false);
+  const [isCreatePartyModalOpen, setIsCreatePartyModalOpen] = useState(false);
+  const [upnpTestResult, setUpnpTestResult] = useState<{
+    success: boolean;
+    isCgnat?: boolean;
+    externalIp?: string;
+    externalPort?: number;
+    error?: string;
+  } | null>(null);
 
   const refreshE4mcStatus = useCallback(async () => {
     if (!instance?.id) return;
@@ -321,6 +331,7 @@ export function InstancePage({
     setTestingUpnp(true);
     try {
       const res = await window.onyx.party.testUpnp();
+      setUpnpTestResult(res);
       if (res.success) {
         if (res.isCgnat) {
           onNotify("warning", "UPnP (CGNAT)", t("party.testUpnp.cgnat"));
@@ -330,9 +341,13 @@ export function InstancePage({
       } else {
         onNotify("warning", "UPnP", t("party.testUpnp.failed", { error: res.error || "no response" }));
       }
+      return res;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      const fail = { success: false, error: msg };
+      setUpnpTestResult(fail);
       onNotify("warning", "UPnP", msg);
+      return fail;
     } finally {
       setTestingUpnp(false);
     }
@@ -365,18 +380,23 @@ export function InstancePage({
     };
   }, []);
 
-  const handlePartyCreate = useCallback(async () => {
+  const handleConfirmPartyCreate = useCallback(async (mode: "auto" | "e4mc" | "upnp" | "playit" | "local") => {
     setPartyCreating(true);
     try {
-      await window.onyx.party.create({ instanceId: instance.id });
+      await handleSetTunnelMode(mode);
+      await window.onyx.party.create({ instanceId: instance.id, tunnelMode: mode });
       setPartyInstanceId(instance.id);
-      // partyRoom will be populated by onRoomUpdate subscription
+      setIsCreatePartyModalOpen(false);
     } catch {
       onNotify("warning", t("party.error.create"), "");
     } finally {
       setPartyCreating(false);
     }
-  }, [instance.id, onNotify, t]);
+  }, [instance.id, handleSetTunnelMode, onNotify, t]);
+
+  const handlePartyCreate = useCallback(async () => {
+    setIsCreatePartyModalOpen(true);
+  }, []);
 
   const handlePartyClose = useCallback(async () => {
     await window.onyx.party.close().catch(() => undefined);
@@ -1724,17 +1744,28 @@ export function InstancePage({
                     <div className="party-tunnel-config">
                       <div className="party-tunnel-config__head">
                         <span className="party-tunnel-config__label">{t("party.tunnelMode.label")}</span>
-                        {partyTunnelMode === "upnp" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <button
                             type="button"
                             className="button button--mini button--secondary"
-                            onClick={() => void handleTestUpnp()}
-                            disabled={testingUpnp}
+                            onClick={() => setIsCreatePartyModalOpen(true)}
+                            title={t("party.button.changeMethod")}
                           >
-                            {testingUpnp ? <LoaderCircle className="spin" size={12} /> : <Network size={12} />}
-                            <span>{t("party.testUpnp.btn")}</span>
+                            <HelpCircle size={12} />
+                            <span>{t("party.button.changeMethod")}</span>
                           </button>
-                        )}
+                          {partyTunnelMode === "upnp" && (
+                            <button
+                              type="button"
+                              className="button button--mini button--secondary"
+                              onClick={() => void handleTestUpnp()}
+                              disabled={testingUpnp}
+                            >
+                              {testingUpnp ? <LoaderCircle className="spin" size={12} /> : <Network size={12} />}
+                              <span>{t("party.testUpnp.btn")}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="party-tunnel-tabs">
                         {(
@@ -1765,7 +1796,19 @@ export function InstancePage({
                     </div>
                   )}
 
-                  {instance.loader === "vanilla" && isPartyHost && (
+                  {(partyLanInfo?.tunnelType === "local" || (!partyLanInfo && partyTunnelMode === "local")) && isPartyHost && (
+                    <div className="party-helper-banner party-helper-banner--local">
+                      <div className="party-helper-banner__icon">
+                        <Wifi size={16} />
+                      </div>
+                      <div className="party-helper-banner__content">
+                        <strong>{t("party.localWarning.title")}</strong>
+                        <p>{t("party.localWarning.desc", { ip: partyLanInfo?.hostIp || "192.168.x.x" })}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(!instance.loader || instance.loader.toLowerCase() === "vanilla") && isPartyHost && (
                     <div className="party-helper-banner">
                       <div className="party-helper-banner__icon">
                         <Zap size={16} />
@@ -1786,7 +1829,7 @@ export function InstancePage({
                     </div>
                   )}
 
-                  {instance.loader !== "vanilla" &&
+                  {Boolean(instance.loader && instance.loader.toLowerCase() !== "vanilla") &&
                     isPartyHost &&
                     e4mcStatus &&
                     !e4mcStatus.installed &&
@@ -3903,6 +3946,26 @@ export function InstancePage({
           </div>
         </div>
       )}
+
+      <CreatePartyModal
+        open={isCreatePartyModalOpen}
+        instance={instance}
+        initialMode={partyTunnelMode}
+        onClose={() => setIsCreatePartyModalOpen(false)}
+        onConfirmCreate={async (mode) => {
+          await handleConfirmPartyCreate(mode);
+        }}
+        e4mcStatus={e4mcStatus}
+        onInstallE4mc={handleInstallE4mc}
+        onConvertVanillaE4mc={handleConvertVanillaE4mc}
+        installingE4mc={installingE4mc}
+        convertingVanilla={convertingVanilla}
+        testingUpnp={testingUpnp}
+        onTestUpnp={handleTestUpnp}
+        upnpTestResult={upnpTestResult}
+        partyCreating={partyCreating}
+        isExistingRoom={Boolean(isRoomForThisInstance && partyRoom)}
+      />
     </motion.div>
   );
 }
