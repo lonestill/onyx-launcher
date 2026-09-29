@@ -124,6 +124,7 @@ const {
 } = require("../electron/services/instance-storage.cjs");
 const {
   recommendInstanceResources,
+  generateOptimizedJvmFlags,
 } = require("../electron/services/tuning.cjs");
 const {
   decodeVarInt,
@@ -652,6 +653,64 @@ test("AutoTune accounts for the mod count without consuming all memory", () => {
   assert.equal(constrained.memoryGiB, 4);
   assert.equal(constrained.javaMajor, 17);
   assert.ok(constrained.memoryGiB <= constrained.safeMaximumGiB);
+});
+
+test("Smart Hardware GC AutoTune selects Generational ZGC for Java 21+ and tuned G1GC for Java 17", () => {
+  const zgcFlags = generateOptimizedJvmFlags({
+    memoryGiB: 6,
+    javaMajor: 21,
+    cpuCores: 8,
+  });
+  assert.ok(zgcFlags.includes("-XX:+UseZGC"));
+  assert.ok(zgcFlags.includes("-XX:+ZGenerational"));
+  assert.ok(zgcFlags.includes("-XX:+UseStringDeduplication"));
+
+  const g1Flags = generateOptimizedJvmFlags({
+    memoryGiB: 4,
+    javaMajor: 17,
+    cpuCores: 8,
+  });
+  assert.ok(g1Flags.includes("-XX:+UseG1GC"));
+  assert.ok(g1Flags.includes("-XX:MaxGCPauseMillis=30"));
+  assert.ok(g1Flags.includes("-XX:ParallelGCThreads=8"));
+  assert.ok(g1Flags.includes("-XX:ConcGCThreads=2"));
+
+  const lowRamZgc = generateOptimizedJvmFlags({
+    memoryGiB: 2,
+    javaMajor: 21,
+  });
+  assert.ok(lowRamZgc.includes("-XX:+UseG1GC")); // Under 4GB falls back to G1GC
+});
+
+test("Pre-Flight Doctor detects orphan session.lock and OptiFine without OptiFabric", async () => {
+  const root = path.join(temporaryRoot, "preflight-doctor");
+  const instanceRoot = path.join(root, "instances");
+  const instId = "doctor-test";
+  const instDir = path.join(instanceRoot, instId);
+  const modsDir = path.join(instDir, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "session.lock"), "lock");
+  await fsp.writeFile(path.join(modsDir, "OptiFine_1.20.1_HD_U_I6.jar"), "optifine");
+  await fsp.writeFile(path.join(instDir, "options.txt"), "gamma:NaN\nfov:70.0\n");
+
+  const report = await checkInstanceHealth({
+    instance: {
+      id: instId,
+      version: "1.20.1",
+      loader: "fabric",
+      status: "ready",
+      resolvedVersionId: "fabric-loader-0.15.11-1.20.1",
+    },
+    settings: { memory: 4 },
+    sharedRoot: path.join(root, "shared"),
+    instancesRoot: instanceRoot,
+  });
+
+  assert.equal(report.hasDoctorWarnings, true);
+  assert.ok(report.autoFixes.length >= 3);
+  assert.ok(report.checks.some((c) => c.code === "orphan-session-lock"));
+  assert.ok(report.checks.some((c) => c.code === "optifine-fabric-unsupported"));
+  assert.ok(report.checks.some((c) => c.code === "options-corrupted-values"));
 });
 
 test("An Onyx backup transfers worlds, settings, and metadata", async () => {

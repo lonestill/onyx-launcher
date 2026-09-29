@@ -20,6 +20,7 @@ const {
   nativeArchitectureToken,
   javaConsoleExecutable,
 } = require("./platform.cjs");
+const { generateOptimizedJvmFlags } = require("./tuning.cjs");
 
 const VERSION_MANIFEST =
   "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -1034,10 +1035,18 @@ class MinecraftService {
         classpath,
       ];
     }
+    const hasCustomGc = (settings.jvmArguments || []).some((arg) => typeof arg === "string" && /-XX:\+Use.*GC/i.test(arg));
+    const optimizedGc = hasCustomGc
+      ? []
+      : generateOptimizedJvmFlags({
+          memoryGiB: settings.memory || 6,
+          javaMajor: settings.javaMajor || 17,
+        });
+
     jvmArguments.unshift(
       `-Xms${Math.min(2, settings.memory || 6)}G`,
       `-Xmx${settings.memory || 6}G`,
-      "-XX:+UseG1GC",
+      ...optimizedGc,
       "-Dfile.encoding=UTF-8",
       "-Djava.net.preferIPv4Stack=true",
     );

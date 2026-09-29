@@ -10,7 +10,7 @@
 
 A modern, fast, zero-bloat Minecraft launcher for Windows and Linux, built with Electron, React, and TypeScript. Scope is the first Minecraft launcher equipped with a **1-Click Smart Crash Auto-Fixer**, deep mod JAR manifest inspection, automated binary crash bisect diagnostics, 1-click universal migration from all major launchers, and an integrated 3D WebGL skin & cape studio.
 
-[Download the latest release (v1.6.16)](https://github.com/lonestill/scope-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/scope-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
+[Download the latest release (v2.0.0)](https://github.com/lonestill/scope-launcher/releases/latest) · [💬 Discord Community](https://discord.gg/qHZCehveYp) · [Good first issues](https://github.com/lonestill/scope-launcher/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) · [Contribute](CONTRIBUTING.md)
 
 ## 💬 Community & Support
 
@@ -123,12 +123,14 @@ Scope Launcher is the first desktop Minecraft launcher engineered with an automa
   - **Corrupted Archive Cleanup**: Removes damaged JAR files failing ZIP headers and initiates integrity check.
 - **Deep JAR Manifest Inspector**: Directly inspects `fabric.mod.json`, `quilt.mod.json`, `META-INF/mods.toml`, and `META-INF/neoforge.mods.toml` inside JAR files on crash without extracting files to disk. Instantly catches Forge mods placed in Fabric instances or outdated mod versions (e.g., 1.16/1.19 mods in a 1.20 instance).
 - **Automated Mod Bisect**: Runs an automated binary-search diagnostic session across mods to isolate unknown or complex mod conflict culprits in minutes.
+- **Pre-Flight Doctor (Preemptive Crash Prevention)**: Proactively runs diagnostic health checks before launching Minecraft — detects and offers 1-click repairs for orphaned `session.lock` zombie processes, OptiFine missing OptiFabric on Fabric, corrupted `options.txt` NaN values, and 0-byte `level.dat` recovery from `level.dat_old`.
 - **Strict User Consent**: Every auto-fix action opens a transparent diff modal showing exactly what will be modified (memory limit, disabled mod filename, Java path, or deleted corrupt file) before anything is changed.
 
 ### Minecraft and Java
 
 - Official Mojang release and snapshot manifests.
 - Vanilla, Fabric, Quilt, Forge, and NeoForge support.
+- **Smart Hardware GC AutoTune**: Dynamically tunes JVM garbage collector flags to match host CPU cores and memory allocation. Automatically selects Generational ZGC on Java 21+ with 4GB+ RAM, and applies low-latency G1GC parameters (`MaxGCPauseMillis=30`, `UseStringDeduplication`, thread bounds) for smooth frame pacing.
 - Shared asset and library caches without duplicating files between instances.
 - Automatic Eclipse Temurin Java 8, 17, or 21 selection and installation.
 - SHA-1, SHA-256, and SHA-512 verification for downloaded files.
@@ -181,8 +183,8 @@ scoop install onyx/scope-launcher
 **Direct download:**
 
 Download an installer or portable archive from the [latest GitHub Release](https://github.com/lonestill/scope-launcher/releases/latest):
-- NSIS installer: `Scope.Launcher.Setup.1.6.16.exe`
-- Portable executable: `Scope.Launcher.1.6.16.exe`
+- NSIS installer: `Scope.Launcher.Setup.2.0.0.exe`
+- Portable executable: `Scope.Launcher.2.0.0.exe`
 
 Windows builds are unsigned, so SmartScreen may display a warning on first launch.
 
@@ -198,8 +200,8 @@ yay -S scope-launcher-bin
 **Direct download:**
 
 Download from the [latest GitHub Release](https://github.com/lonestill/scope-launcher/releases/latest):
-- AppImage: `Scope-Launcher-1.6.16-x86_64.AppImage`
-- Portable archive: `Scope-Launcher-1.6.16-linux-x64.tar.gz`
+- AppImage: `Scope-Launcher-2.0.0-x86_64.AppImage`
+- Portable archive: `Scope-Launcher-2.0.0-linux-x64.tar.gz`
 
 
 ### Verify a download

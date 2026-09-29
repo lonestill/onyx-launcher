@@ -200,6 +200,99 @@ async function checkInstanceHealth({
         status: "warning",
       });
     }
+
+    // Pre-Flight Doctor: Session lock check
+    const rootLock = path.join(instanceDirectory, "session.lock");
+    if (fs.existsSync(rootLock)) {
+      checks.push({
+        code: "orphan-session-lock",
+        status: "warning",
+        action: "auto",
+        message: "A session.lock file is present and may indicate a running or zombie game process",
+        autoFix: {
+          type: "kill-zombie-process",
+          titleKey: "crash.autofix.zombieProcess.title",
+          descKey: "crash.autofix.zombieProcess.desc",
+          payload: { lockFile: "session.lock" },
+        },
+      });
+    }
+
+    // Pre-Flight Doctor: OptiFine on Fabric without OptiFabric
+    const isFabric = String(instance.loader || "").toLowerCase().includes("fabric");
+    const modsDir = path.join(instanceDirectory, "mods");
+    if (isFabric && fs.existsSync(modsDir)) {
+      try {
+        const modFiles = await fsp.readdir(modsDir);
+        const hasOptifine = modFiles.some((f) => /optifine/i.test(f) && !f.endsWith(".disabled"));
+        const hasOptifabric = modFiles.some((f) => /optifabric/i.test(f) && !f.endsWith(".disabled"));
+        if (hasOptifine && !hasOptifabric) {
+          checks.push({
+            code: "optifine-fabric-unsupported",
+            status: "error",
+            action: "auto",
+            message: "OptiFine is installed on Fabric without the required OptiFabric companion mod",
+            autoFix: {
+              type: "install-optifabric",
+              titleKey: "crash.autofix.installOptifabric.title",
+              descKey: "crash.autofix.installOptifabric.desc",
+              payload: { projectId: "optifabric" },
+            },
+          });
+        }
+      } catch {}
+    }
+
+    // Pre-Flight Doctor: Corrupted options.txt (NaN in floats)
+    const optionsPath = path.join(instanceDirectory, "options.txt");
+    if (fs.existsSync(optionsPath)) {
+      try {
+        const optContent = await fsp.readFile(optionsPath, "utf8");
+        if (/gamma:.*NaN|fov:.*NaN/i.test(optContent)) {
+          checks.push({
+            code: "options-corrupted-values",
+            status: "warning",
+            action: "auto",
+            message: "options.txt contains corrupted NaN values that will crash window creation",
+            autoFix: {
+              type: "sanitize-options-txt",
+              titleKey: "crash.autofix.sanitizeOptions.title",
+              descKey: "crash.autofix.sanitizeOptions.desc",
+              payload: { optionsFile: "options.txt" },
+            },
+          });
+        }
+      } catch {}
+    }
+
+    // Pre-Flight Doctor: Corrupted level.dat with level.dat_old recovery
+    const savesDir = path.join(instanceDirectory, "saves");
+    if (fs.existsSync(savesDir)) {
+      try {
+        const worlds = await fsp.readdir(savesDir);
+        for (const w of worlds) {
+          const lvlDat = path.join(savesDir, w, "level.dat");
+          const lvlOld = path.join(savesDir, w, "level.dat_old");
+          if (fs.existsSync(lvlDat) && fs.existsSync(lvlOld)) {
+            const st = await fsp.stat(lvlDat).catch(() => null);
+            if (st && st.size === 0) {
+              checks.push({
+                code: "corrupted-world-level-dat",
+                status: "warning",
+                action: "auto",
+                message: `World '${w}' has a truncated 0-byte level.dat with a recoverable backup`,
+                autoFix: {
+                  type: "restore-corrupted-level-dat",
+                  titleKey: "crash.autofix.restoreLevelDat.title",
+                  descKey: "crash.autofix.restoreLevelDat.desc",
+                  payload: { worldName: w },
+                },
+              });
+            }
+          }
+        }
+      } catch {}
+    }
   }
 
   const requiredJava =
@@ -296,6 +389,7 @@ async function checkInstanceHealth({
   }
 
   const status = reportStatus(checks, { requiresInstall, repairNeeded });
+  const autoFixes = checks.filter((check) => check.autoFix).map((check) => check.autoFix);
   return {
     instanceId: instance.id,
     checkedAt: new Date().toISOString(),
@@ -309,6 +403,8 @@ async function checkInstanceHealth({
     requiresInstall,
     repairNeeded,
     checks,
+    autoFixes,
+    hasDoctorWarnings: autoFixes.length > 0,
   };
 }
 

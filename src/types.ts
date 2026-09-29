@@ -233,7 +233,9 @@ export type InstanceHealthStatus =
 export interface InstanceHealthCheck {
   code: string;
   status: "pass" | "warning" | "error";
-  action?: "auto" | "repair" | "settings" | "content";
+  action?: "auto" | "repair" | "settings" | "content" | "autofix";
+  message?: string;
+  autoFix?: CrashAutoFix | null;
   path?: string;
   requiredMajor?: number;
   actualMajor?: number;
@@ -256,6 +258,8 @@ export interface InstanceHealthReport {
   requiresInstall: boolean;
   repairNeeded: boolean;
   checks: InstanceHealthCheck[];
+  autoFixes?: CrashAutoFix[];
+  hasDoctorWarnings?: boolean;
 }
 
 export interface InstanceScreenshot {

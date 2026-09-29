@@ -42,7 +42,42 @@ function recommendInstanceResources({
   };
 }
 
+function generateOptimizedJvmFlags({
+  memoryGiB = 4,
+  javaMajor = 17,
+  cpuCores = os.cpus()?.length || 4,
+  enableZgcIfAvailable = true,
+} = {}) {
+  const flags = [];
+  const cores = Math.max(1, cpuCores);
+
+  // Java 21+ with 4GB+ heap benefits from Generational ZGC (sub-millisecond pause times)
+  if (javaMajor >= 21 && memoryGiB >= 4 && enableZgcIfAvailable) {
+    flags.push(
+      "-XX:+UseZGC",
+      "-XX:+ZGenerational",
+      "-XX:+UseStringDeduplication",
+    );
+  } else {
+    // Tuned G1GC flags for Java 17 and constrained environments
+    const parallelThreads = Math.max(1, Math.min(cores, 8));
+    const concThreads = Math.max(1, Math.floor(cores / 4));
+    flags.push(
+      "-XX:+UseG1GC",
+      "-XX:G1ReservePercent=15",
+      "-XX:G1HeapRegionSize=32m",
+      "-XX:MaxGCPauseMillis=30",
+      `-XX:ParallelGCThreads=${parallelThreads}`,
+      `-XX:ConcGCThreads=${concThreads}`,
+      "-XX:+UseStringDeduplication",
+    );
+  }
+
+  return flags;
+}
+
 module.exports = {
   GIB,
   recommendInstanceResources,
+  generateOptimizedJvmFlags,
 };
