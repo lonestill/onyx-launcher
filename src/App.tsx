@@ -1423,10 +1423,6 @@ export default function App() {
           downloads={state.downloads}
           onNavigate={setRoute}
           onAccount={() => setAccountOpen(true)}
-          onJoinParty={() => {
-            setJoinPartyInitialCode(null);
-            setJoinPartyOpen(true);
-          }}
         />
         <main className="content">
           <Suspense

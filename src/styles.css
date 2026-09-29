@@ -1324,17 +1324,6 @@ kbd {
   max-width: 580px;
 }
 
-.ops-grid--duo {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 860px;
-}
-
-@media (max-width: 800px) {
-  .ops-grid--duo {
-    grid-template-columns: 1fr;
-  }
-}
-
 .ops-card {
   display: flex;
   flex-direction: column;

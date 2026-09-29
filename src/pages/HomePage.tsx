@@ -13,7 +13,6 @@ import {
   ShieldAlert,
   Sparkles,
   Square,
-  Users2,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -67,13 +66,6 @@ export function HomePage({
   const [quickServer, setQuickServer] = useState("");
   const [pingResult, setPingResult] = useState<MinecraftServerStatus | null>(null);
   const [pinging, setPinging] = useState(false);
-  const [partyCode, setPartyCode] = useState("");
-
-  const handleJoinParty = () => {
-    const trimmed = partyCode.trim();
-    if (!trimmed) return;
-    onJoinParty?.(trimmed);
-  };
 
   const activeInstance =
     instances.find((instance) => instance.id === selectedInstanceId) ??
@@ -418,46 +410,7 @@ export function HomePage({
         </div>
       </section>
 
-      <section className="ops-grid ops-grid--duo">
-        <div className="ops-card ops-card--party">
-          <div className="ops-card__head">
-            <div className="ops-card__icon">
-              <Users2 size={16} />
-            </div>
-            <div className="ops-card__titles">
-              <strong>{t("home.partyCard.title")}</strong>
-              <span>{t("home.partyCard.subtitle")}</span>
-            </div>
-          </div>
-          <div className="ops-card__body">
-            <div className="quick-join-form">
-              <div className="quick-join-input-shell">
-                <Users2 size={14} />
-                <input
-                  type="text"
-                  placeholder={t("home.partyCard.placeholder")}
-                  value={partyCode}
-                  onChange={(event) => setPartyCode(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleJoinParty();
-                  }}
-                  style={{ fontFamily: "var(--font-mono)", textTransform: "uppercase" }}
-                />
-              </div>
-            </div>
-            <div className="ops-card__footer">
-              <button
-                className="button button--secondary button--full"
-                onClick={handleJoinParty}
-                disabled={!partyCode.trim()}
-              >
-                <ArrowRight size={13} />
-                {t("home.partyCard.connect")}
-              </button>
-            </div>
-          </div>
-        </div>
-
+      <section className="ops-grid ops-grid--single">
         <div className="ops-card ops-card--server">
           <div className="ops-card__head">
             <div className="ops-card__icon">
