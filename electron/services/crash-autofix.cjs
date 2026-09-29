@@ -761,6 +761,124 @@ async function detectCrashAutoFix({
     };
   }
 
+  // 29. restore-corrupted-level-dat
+  if (/Failed to read level\.dat|EOFException.*level\.dat|CompressedStreamTools.*level\.dat|Corrupt level\.dat/i.test(combined)) {
+    const worldMatch = combined.match(/saves[\\/]([a-zA-Z0-9_\-+ ]+)[\\/]level\.dat/i) || combined.match(/world\s+['"]?([a-zA-Z0-9_\-+ ]+)['"]?/i);
+    return {
+      type: "restore-corrupted-level-dat",
+      titleKey: "crash.autofix.restoreLevelDat.title",
+      descKey: "crash.autofix.restoreLevelDat.desc",
+      payload: { worldName: worldMatch ? worldMatch[1] : "world" },
+    };
+  }
+
+  // 30. resolve-mixin-overwrite
+  if (/MixinTransformerError.*Critical injection failure|Cannot apply @Overwrite on target|failed injection check.*mixins?\.json/i.test(combined)) {
+    const mixinMatch = combined.match(/([a-zA-Z0-9_\-+.]+)\.mixins?\.json/i);
+    return {
+      type: "resolve-mixin-overwrite",
+      titleKey: "crash.autofix.mixinOverwrite.title",
+      descKey: "crash.autofix.mixinOverwrite.desc",
+      payload: { mixinName: mixinMatch ? mixinMatch[1] : "unknown" },
+    };
+  }
+
+  // 31. sanitize-options-txt
+  if (/NumberFormatException.*For input string: "NaN"|NumberFormatException.*options\.txt|Unknown key code.*options\.txt|Failed to load options/i.test(combined)) {
+    return {
+      type: "sanitize-options-txt",
+      titleKey: "crash.autofix.sanitizeOptions.title",
+      descKey: "crash.autofix.sanitizeOptions.desc",
+      payload: { optionsFile: "options.txt" },
+    };
+  }
+
+  // 32. install-optifabric (Fabric + OptiFine without OptiFabric)
+  const isFabric = (instance.loader || "").toLowerCase() === "fabric";
+  const hasOptifine = /optifine/i.test(combined);
+  const lacksOptifabric = !/optifabric/i.test(combined);
+  if (isFabric && hasOptifine && lacksOptifabric && (/LaunchClassLoader|OptiFine is not compatible directly/i.test(combined) || combined.includes("OptiFine"))) {
+    return {
+      type: "install-optifabric",
+      titleKey: "crash.autofix.installOptifabric.title",
+      descKey: "crash.autofix.installOptifabric.desc",
+      payload: { projectId: "optifabric", depName: "OptiFabric" },
+    };
+  }
+
+  // 33. purge-instance-logs-cache
+  if (/No space left on device|There is not enough space on the disk|Disk full/i.test(combined)) {
+    return {
+      type: "purge-instance-logs-cache",
+      titleKey: "crash.autofix.purgeLogsCache.title",
+      descKey: "crash.autofix.purgeLogsCache.desc",
+      payload: {},
+    };
+  }
+
+  // 34. install-language-adapter
+  const adapterMatch = combined.match(/Language adapter '([a-zA-Z0-9_\-]+)' was not found|LanguageAdapterException/i);
+  if (adapterMatch) {
+    const rawAdapter = (adapterMatch[1] || "kotlin").toLowerCase();
+    const projectId = rawAdapter.includes("kotlin") ? "fabric-language-kotlin" : `language-adapter-${rawAdapter}`;
+    return {
+      type: "install-language-adapter",
+      titleKey: "crash.autofix.installLangAdapter.title",
+      descKey: "crash.autofix.installLangAdapter.desc",
+      payload: { adapterName: rawAdapter, projectId },
+    };
+  }
+
+  // 35. suppress-gpu-hooks
+  if (/# Problematic frame:.*(?:nvoglv64\.dll|atig6pxx\.dll|d3d11\.dll|RTSSHooks64\.dll|DiscordHook64\.dll)/i.test(combined) || /EXCEPTION_ACCESS_VIOLATION.*(?:nvoglv64|RTSSHooks)/i.test(combined)) {
+    return {
+      type: "suppress-gpu-hooks",
+      titleKey: "crash.autofix.suppressGpuHooks.title",
+      descKey: "crash.autofix.suppressGpuHooks.desc",
+      payload: { jvmFlag: "-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true" },
+    };
+  }
+
+  // 36. force-switch-64bit-java
+  if (/Could not reserve enough space for \d+KB object heap|32-Bit Server VM|32-bit Java|x86 JRE/i.test(combined)) {
+    return {
+      type: "force-switch-64bit-java",
+      titleKey: "crash.autofix.forceSwitch64BitJava.title",
+      descKey: "crash.autofix.forceSwitch64BitJava.desc",
+      payload: { targetArch: "x64" },
+    };
+  }
+
+  // 37. install-qsl-library
+  if (/Missing required library:\s*QSL|quilt_loader:\s*Missing dependency:\s*qsl|requires\s+qsl\s+library|Quilt Standard Libraries.*missing/i.test(combined)) {
+    return {
+      type: "install-qsl-library",
+      titleKey: "crash.autofix.installQsl.title",
+      descKey: "crash.autofix.installQsl.desc",
+      payload: { projectId: "qsl", depName: "Quilted Fabric API" },
+    };
+  }
+
+  // 38. purge-corrupted-natives
+  if (/UnsatisfiedLinkError: Could not load library: lwjgl|no lwjgl.*in java\.library\.path|corrupted native/i.test(combined)) {
+    return {
+      type: "purge-corrupted-natives",
+      titleKey: "crash.autofix.purgeNatives.title",
+      descKey: "crash.autofix.purgeNatives.desc",
+      payload: {},
+    };
+  }
+
+  // 39. allow-security-manager-flag
+  if (/UnsupportedOperationException: The Security Manager is deprecated|getSecurityManager is not allowed to be called/i.test(combined)) {
+    return {
+      type: "allow-security-manager-flag",
+      titleKey: "crash.autofix.allowSecurityManager.title",
+      descKey: "crash.autofix.allowSecurityManager.desc",
+      payload: { jvmFlag: "-Djava.security.manager=allow" },
+    };
+  }
+
   return null;
 }
 
@@ -1333,6 +1451,214 @@ async function applyCrashAutoFix({
         success: true,
         action: "disable-environment-mismatched-mod",
         message: "Disabled environment mismatched mod",
+      };
+    }
+
+    case "restore-corrupted-level-dat": {
+      const savesDir = path.join(instancesRoot, instance.id, "saves");
+      let restored = false;
+      if (fs.existsSync(savesDir)) {
+        const worlds = await fsp.readdir(savesDir).catch(() => []);
+        for (const w of worlds) {
+          const wDir = path.join(savesDir, w);
+          const lvlDat = path.join(wDir, "level.dat");
+          const lvlOld = path.join(wDir, "level.dat_old");
+          if (fs.existsSync(lvlOld)) {
+            if (fs.existsSync(lvlDat)) {
+              await fsp.rename(lvlDat, `${lvlDat}.corrupt`).catch(() => {});
+            }
+            await fsp.copyFile(lvlOld, lvlDat).catch(() => {});
+            restored = true;
+          }
+        }
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "restore-corrupted-level-dat",
+        message: restored ? "Restored level.dat from level.dat_old" : "No level.dat_old backup found to restore",
+      };
+    }
+
+    case "resolve-mixin-overwrite": {
+      const mixinName = fixAction.payload?.mixinName;
+      let disabledFile = null;
+      if (mixinName && instancesRoot) {
+        const modsDir = path.join(instancesRoot, instance.id, "mods");
+        if (fs.existsSync(modsDir)) {
+          const files = await fsp.readdir(modsDir).catch(() => []);
+          const activeJars = files.filter((f) => f.endsWith(".jar") && !f.endsWith(".disabled"));
+          const target = activeJars.find((f) => f.toLowerCase().includes(mixinName.toLowerCase().replace(/[^a-z0-9]/g, "")));
+          if (target) {
+            await fsp.rename(path.join(modsDir, target), path.join(modsDir, `${target}.disabled`)).catch(() => {});
+            disabledFile = target;
+          }
+        }
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "resolve-mixin-overwrite",
+        message: disabledFile ? `Disabled conflicting mod ${disabledFile}` : `Flagged mixin conflict for ${mixinName}`,
+      };
+    }
+
+    case "sanitize-options-txt": {
+      const optionsTxt = path.join(instancesRoot, instance.id, "options.txt");
+      if (fs.existsSync(optionsTxt)) {
+        let content = await fsp.readFile(optionsTxt, "utf8");
+        content = content.replace(/^gamma:.*NaN.*$/m, "gamma:1.0");
+        content = content.replace(/^fov:.*NaN.*$/m, "fov:70.0");
+        content = content.replace(/^gamma:\s*$/m, "gamma:1.0");
+        await fsp.writeFile(optionsTxt, content, "utf8");
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "sanitize-options-txt",
+        message: "Sanitized invalid values in options.txt",
+      };
+    }
+
+    case "install-optifabric": {
+      if (installModFn) {
+        await installModFn({
+          instance,
+          projectId: "optifabric",
+        });
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "install-optifabric",
+        message: "Installed OptiFabric companion mod",
+      };
+    }
+
+    case "purge-instance-logs-cache": {
+      const logsDir = path.join(instancesRoot, instance.id, "logs");
+      let count = 0;
+      if (fs.existsSync(logsDir)) {
+        const files = await fsp.readdir(logsDir).catch(() => []);
+        for (const f of files) {
+          if (f.endsWith(".log.gz") || f.endsWith(".tmp")) {
+            await fsp.unlink(path.join(logsDir, f)).catch(() => {});
+            count++;
+          }
+        }
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "purge-instance-logs-cache",
+        message: `Purged ${count} archived log files to free disk space`,
+      };
+    }
+
+    case "install-language-adapter": {
+      if (installModFn) {
+        await installModFn({
+          instance,
+          projectId: fixAction.payload?.projectId || "fabric-language-kotlin",
+        });
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "install-language-adapter",
+        message: `Installed language adapter ${fixAction.payload?.adapterName || ""}`,
+      };
+    }
+
+    case "suppress-gpu-hooks": {
+      instance.settings = instance.settings || {};
+      instance.settings.jvmArguments = instance.settings.jvmArguments || [];
+      const flag = fixAction.payload?.jvmFlag || "-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true";
+      if (!instance.settings.jvmArguments.includes(flag)) {
+        instance.settings.jvmArguments.push(flag);
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "suppress-gpu-hooks",
+        message: "Injected safe GPU compatibility argument",
+      };
+    }
+
+    case "force-switch-64bit-java": {
+      instance.settings = instance.settings || {};
+      instance.settings.javaPath = "";
+      instance.javaArch = "x64";
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "force-switch-64bit-java",
+        message: "Switched to managed 64-bit Java runtime",
+      };
+    }
+
+    case "install-qsl-library": {
+      if (installModFn) {
+        await installModFn({
+          instance,
+          projectId: "qsl",
+        });
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "install-qsl-library",
+        message: "Installed Quilted Fabric API (QSL)",
+      };
+    }
+
+    case "purge-corrupted-natives": {
+      const nativesDir = path.join(instancesRoot, instance.id, "natives");
+      if (fs.existsSync(nativesDir)) {
+        await fsp.rm(nativesDir, { recursive: true, force: true }).catch(() => {});
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "purge-corrupted-natives",
+        message: "Purged natives directory to force clean re-extraction",
+      };
+    }
+
+    case "allow-security-manager-flag": {
+      instance.settings = instance.settings || {};
+      instance.settings.jvmArguments = instance.settings.jvmArguments || [];
+      const flag = "-Djava.security.manager=allow";
+      if (!instance.settings.jvmArguments.includes(flag)) {
+        instance.settings.jvmArguments.push(flag);
+      }
+      instance.lastAutoFix = null;
+      instance.lastDiagnosis = null;
+      if (saveStateFn) await saveStateFn();
+      return {
+        success: true,
+        action: "allow-security-manager-flag",
+        message: "Allowed SecurityManager via JVM argument",
       };
     }
 

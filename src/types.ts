@@ -163,7 +163,18 @@ export type AutoFixType =
   | "repair-instance-assets"
   | "cleanup-temp-install-files"
   | "reconcile-modpack-manifest"
-  | "disable-environment-mismatched-mod";
+  | "disable-environment-mismatched-mod"
+  | "restore-corrupted-level-dat"
+  | "resolve-mixin-overwrite"
+  | "sanitize-options-txt"
+  | "install-optifabric"
+  | "purge-instance-logs-cache"
+  | "install-language-adapter"
+  | "suppress-gpu-hooks"
+  | "force-switch-64bit-java"
+  | "install-qsl-library"
+  | "purge-corrupted-natives"
+  | "allow-security-manager-flag";
 
 export interface CrashAutoFix {
   type: AutoFixType;
@@ -205,6 +216,10 @@ export interface CrashAutoFix {
     advisory?: boolean;
     environment?: string;
     mod?: string;
+    worldName?: string;
+    mixinName?: string;
+    adapterName?: string;
+    freedMb?: number;
   };
 }
 

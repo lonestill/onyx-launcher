@@ -556,3 +556,217 @@ test("detectCrashAutoFix & apply: cleanup-temp-install-files", async () => {
   await fsp.rm(tmpRoot, { recursive: true, force: true });
 });
 
+test("detectCrashAutoFix & apply: restore-corrupted-level-dat", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-level-"));
+  const instId = "inst-lvl";
+  const wDir = path.join(tmpRoot, instId, "saves", "SurvivalWorld");
+  await fsp.mkdir(wDir, { recursive: true });
+  await fsp.writeFile(path.join(wDir, "level.dat"), "");
+  await fsp.writeFile(path.join(wDir, "level.dat_old"), "good-nbt-backup");
+
+  const instance = { id: instId };
+  const logContent = "Failed to read level.dat: java.io.EOFException reading saves/SurvivalWorld/level.dat";
+  const fix = await detectCrashAutoFix({ instance, logContent, instancesRoot: tmpRoot });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "restore-corrupted-level-dat");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.ok(fs.existsSync(path.join(wDir, "level.dat.corrupt")));
+  const restored = await fsp.readFile(path.join(wDir, "level.dat"), "utf8");
+  assert.equal(restored, "good-nbt-backup");
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: resolve-mixin-overwrite", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-mixin-"));
+  const instId = "inst-mix";
+  const modsDir = path.join(tmpRoot, instId, "mods");
+  await fsp.mkdir(modsDir, { recursive: true });
+  await fsp.writeFile(path.join(modsDir, "badrender-1.0.jar"), "dummy");
+
+  const instance = { id: instId };
+  const logContent = "org.spongepowered.asm.mixin.transformer.throwables.MixinTransformerError: Critical injection failure: Cannot apply @Overwrite on target in badrender.mixins.json";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "resolve-mixin-overwrite");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(path.join(modsDir, "badrender-1.0.jar")), false);
+  assert.equal(fs.existsSync(path.join(modsDir, "badrender-1.0.jar.disabled")), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: sanitize-options-txt", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-opt-"));
+  const instId = "inst-opt";
+  const instDir = path.join(tmpRoot, instId);
+  await fsp.mkdir(instDir, { recursive: true });
+  await fsp.writeFile(path.join(instDir, "options.txt"), "gamma:NaN\nfov:NaN\n");
+
+  const instance = { id: instId };
+  const logContent = "java.lang.NumberFormatException: For input string: \"NaN\" reading options.txt";
+  const fix = await detectCrashAutoFix({ instance, logContent, instancesRoot: tmpRoot });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "sanitize-options-txt");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  const updated = await fsp.readFile(path.join(instDir, "options.txt"), "utf8");
+  assert.ok(updated.includes("gamma:1.0"));
+  assert.ok(updated.includes("fov:70.0"));
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: install-optifabric", async () => {
+  const instance = { id: "inst-of", loader: "fabric" };
+  const logContent = "OptiFine 1.20.1 loaded but LaunchClassLoader is missing! OptiFine is not compatible directly with Fabric";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "install-optifabric");
+
+  let installed = null;
+  const result = await applyCrashAutoFix({
+    fixAction: fix,
+    instance,
+    installModFn: async ({ projectId }) => {
+      installed = projectId;
+    },
+  });
+  assert.equal(result.success, true);
+  assert.equal(installed, "optifabric");
+});
+
+test("detectCrashAutoFix & apply: purge-instance-logs-cache", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-purge-"));
+  const instId = "inst-purge";
+  const logsDir = path.join(tmpRoot, instId, "logs");
+  await fsp.mkdir(logsDir, { recursive: true });
+  await fsp.writeFile(path.join(logsDir, "2026-09-01-1.log.gz"), "old-log");
+  await fsp.writeFile(path.join(logsDir, "latest.log"), "current-log");
+
+  const instance = { id: instId };
+  const logContent = "java.io.IOException: There is not enough space on the disk";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "purge-instance-logs-cache");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(path.join(logsDir, "2026-09-01-1.log.gz")), false);
+  assert.equal(fs.existsSync(path.join(logsDir, "latest.log")), true);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: install-language-adapter", async () => {
+  const instance = { id: "inst-lang", loader: "fabric" };
+  const logContent = "net.fabricmc.loader.api.LanguageAdapterException: Language adapter 'kotlin' was not found";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "install-language-adapter");
+  assert.equal(fix.payload.adapterName, "kotlin");
+
+  let installed = null;
+  const result = await applyCrashAutoFix({
+    fixAction: fix,
+    instance,
+    installModFn: async ({ projectId }) => {
+      installed = projectId;
+    },
+  });
+  assert.equal(result.success, true);
+  assert.equal(installed, "fabric-language-kotlin");
+});
+
+test("detectCrashAutoFix & apply: suppress-gpu-hooks", async () => {
+  const instance = { id: "inst-nv", settings: { jvmArguments: [] } };
+  const logContent = "# Problematic frame: C [nvoglv64.dll+0x91834] EXCEPTION_ACCESS_VIOLATION (0xc0000005)";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "suppress-gpu-hooks");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.ok(instance.settings.jvmArguments.some((f) => f.includes("Display.allowSoftwareOpenGL")));
+});
+
+test("detectCrashAutoFix & apply: force-switch-64bit-java", async () => {
+  const instance = { id: "inst-32", settings: { javaPath: "/old/32bit/bin/java" } };
+  const logContent = "Error: Could not reserve enough space for 3145728KB object heap on 32-Bit Server VM";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "force-switch-64bit-java");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.equal(instance.settings.javaPath, "");
+  assert.equal(instance.javaArch, "x64");
+});
+
+test("detectCrashAutoFix & apply: install-qsl-library", async () => {
+  const instance = { id: "inst-qsl", loader: "quilt" };
+  const logContent = "quilt_loader: Missing dependency: qsl (Quilt Standard Libraries)";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "install-qsl-library");
+
+  let installed = null;
+  const result = await applyCrashAutoFix({
+    fixAction: fix,
+    instance,
+    installModFn: async ({ projectId }) => {
+      installed = projectId;
+    },
+  });
+  assert.equal(result.success, true);
+  assert.equal(installed, "qsl");
+});
+
+test("detectCrashAutoFix & apply: purge-corrupted-natives", async () => {
+  const tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "scope-fix-nat-"));
+  const instId = "inst-nat";
+  const nativesDir = path.join(tmpRoot, instId, "natives");
+  await fsp.mkdir(nativesDir, { recursive: true });
+  await fsp.writeFile(path.join(nativesDir, "corrupted.dll"), "bad");
+
+  const instance = { id: instId };
+  const logContent = "java.lang.UnsatisfiedLinkError: Could not load library: lwjgl";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "purge-corrupted-natives");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance, instancesRoot: tmpRoot });
+  assert.equal(result.success, true);
+  assert.equal(fs.existsSync(nativesDir), false);
+
+  await fsp.rm(tmpRoot, { recursive: true, force: true });
+});
+
+test("detectCrashAutoFix & apply: allow-security-manager-flag", async () => {
+  const instance = { id: "inst-sm", settings: { jvmArguments: [] } };
+  const logContent = "java.lang.UnsupportedOperationException: The Security Manager is deprecated and will be removed in a future release";
+  const fix = await detectCrashAutoFix({ instance, logContent });
+
+  assert.ok(fix);
+  assert.equal(fix.type, "allow-security-manager-flag");
+
+  const result = await applyCrashAutoFix({ fixAction: fix, instance });
+  assert.equal(result.success, true);
+  assert.ok(instance.settings.jvmArguments.includes("-Djava.security.manager=allow"));
+});
+

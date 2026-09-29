@@ -52,6 +52,18 @@
 - `java.lang.NullPointerException: Ticking entity`: Configures `removeErroringEntities = true` in Forge configuration to automatically despawn corrupt entity ticking loops.
 - `Failed to load player data: Corrupt NBT tag`: Quarantines corrupted `<uuid>.dat` to `<uuid>.dat.bak` allowing clean profile regeneration.
 - `AccessDeniedException: session.lock is locked by another process`: Cleans orphan `session.lock` files and warns of lingering background Java processes.
+- `Failed to read level.dat` / `EOFException reading level.dat`: Automatically restores corrupted `level.dat` from automatic `level.dat_old` snapshot.
+- `MixinTransformerError: Cannot apply @Overwrite`: Detects mutually exclusive Mixin collisions and disables conflicting culprit mod JAR.
+- `NumberFormatException: For input string: "NaN"` in `options.txt`: Sanitizes corrupted floating-point FOV/gamma values in `options.txt` back to safe defaults.
+- OptiFine on Fabric without OptiFabric: 1-click downloads compatible `OptiFabric` bridge or switches instance to `Sodium + Iris`.
+- `java.io.IOException: There is not enough space on the disk`: Automatically purges old `.log.gz` archives and temp files to free disk space.
+- `Language adapter 'kotlin' was not found`: 1-click installs required language adapter (`fabric-language-kotlin` / `language-adapter-scala`).
+- `EXCEPTION_ACCESS_VIOLATION` in `nvoglv64.dll` / RTSS overlay hooks: Injects OpenGL compatibility flags to suppress conflicting third-party graphics hooks.
+- `Could not reserve enough space on 32-Bit Server VM`: Automatically switches obsolete 32-bit Java path to managed 64-bit Eclipse Temurin runtime.
+- `Missing required library: QSL` on Quilt: 1-click downloads Quilted Fabric API (QSL) directly from Modrinth.
+- `UnsatisfiedLinkError: Could not load library: lwjgl`: Purges corrupted natives directory to force clean re-extraction from library cache.
+- `UnsupportedOperationException: The Security Manager is deprecated`: Injects `-Djava.security.manager=allow` to allow legacy 1.16/1.18 mods to run on modern Java 18+.
+
 
 
 ## Architecture

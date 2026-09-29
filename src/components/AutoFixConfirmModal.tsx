@@ -61,10 +61,14 @@ export function AutoFixConfirmModal({
         return <MemoryStick size={20} className="text-accent" />;
       case "switch-java":
       case "switch-arm64-java":
+      case "force-switch-64bit-java":
         return <Cpu size={20} className="text-accent" />;
       case "install-indium":
       case "install-missing-dependency":
       case "install-openjfx":
+      case "install-optifabric":
+      case "install-language-adapter":
+      case "install-qsl-library":
         return <Download size={20} className="text-accent" />;
       case "disable-culprit-mod":
       case "disable-environment-mismatched-mod":
@@ -72,8 +76,10 @@ export function AutoFixConfirmModal({
       case "remove-duplicate-mod":
         return <Files size={20} className="text-accent" />;
       case "resolve-mod-conflict":
+      case "resolve-mixin-overwrite":
         return <Split size={20} className="text-accent" />;
       case "reset-corrupted-config":
+      case "sanitize-options-txt":
         return <FileCode size={20} className="text-accent" />;
       case "clean-corrupted-file":
         return <HardDrive size={20} className="text-accent" />;
@@ -90,18 +96,23 @@ export function AutoFixConfirmModal({
       case "upgrade-loader-version":
         return <RefreshCw size={20} className="text-accent" />;
       case "inject-java-module-flags":
+      case "suppress-gpu-hooks":
+      case "allow-security-manager-flag":
         return <Shield size={20} className="text-accent" />;
       case "enable-forge-entity-removal":
         return <Users size={20} className="text-accent" />;
       case "quarantine-playerdata":
         return <AlertTriangle size={20} className="text-accent" />;
       case "restore-world-snapshot":
+      case "restore-corrupted-level-dat":
         return <FolderSync size={20} className="text-accent" />;
       case "kill-zombie-process":
         return <AlertTriangle size={20} className="text-accent" />;
       case "repair-instance-assets":
         return <HardDrive size={20} className="text-accent" />;
       case "cleanup-temp-install-files":
+      case "purge-instance-logs-cache":
+      case "purge-corrupted-natives":
         return <Trash2 size={20} className="text-accent" />;
       case "reconcile-modpack-manifest":
         return <FolderSync size={20} className="text-accent" />;

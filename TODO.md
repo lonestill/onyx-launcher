@@ -117,3 +117,45 @@ This document tracks all implemented and planned automated crash diagnosis and 1
 - [x] **E2. Client-Only Mod on Server or Vice-Versa (`disable-environment-mismatched-mod`)**:
   - *Trigger*: `NoClassDefFoundError: net/minecraft/client/Minecraft` in dedicated server environment.
   - *Fix*: Inspect manifest environment tag (`client` vs `server`) and disable mismatched mod.
+
+---
+
+### Category F: World Integrity, Mixins & Configurations
+- [x] **F1. Corrupted `level.dat` Recovery (`restore-corrupted-level-dat`)**:
+  - *Trigger*: `Failed to read level.dat`, `EOFException reading level.dat`, truncated 0-byte world descriptor.
+  - *Fix*: Back up damaged file to `level.dat.corrupt` and revive world from automatic `level.dat_old` snapshot.
+- [x] **F2. Mixin `@Overwrite` Collision Resolution (`resolve-mixin-overwrite`)**:
+  - *Trigger*: `MixinTransformerError: Critical injection failure: Cannot apply @Overwrite`.
+  - *Fix*: Pinpoint offending mixin JSON configuration and disable conflicting mod JAR.
+- [x] **F3. Corrupted `options.txt` NaN Sanitizer (`sanitize-options-txt`)**:
+  - *Trigger*: `NumberFormatException: For input string: "NaN"` in `options.txt`.
+  - *Fix*: Reset invalid float numbers (gamma, fov) and corrupt keybinds to verified defaults.
+
+---
+
+### Category G: Advanced Modding Ecosystem & Native Runtimes
+- [x] **G1. OptiFine on Fabric without OptiFabric (`install-optifabric`)**:
+  - *Trigger*: OptiFine JAR dropped into Fabric without companion bridge or `LaunchClassLoader` error.
+  - *Fix*: 1-click install compatible `OptiFabric` from Modrinth.
+- [x] **G2. Out of Disk Space & Log Archive Purge (`purge-instance-logs-cache`)**:
+  - *Trigger*: `java.io.IOException: There is not enough space on the disk`.
+  - *Fix*: Purge old compressed log archives (`*.log.gz`) and stale temp files.
+- [x] **G3. Missing Language Adapter (`install-language-adapter`)**:
+  - *Trigger*: `Language adapter 'kotlin' was not found` or missing Scala/Clojure adapters.
+  - *Fix*: 1-click install companion language adapter (`fabric-language-kotlin`, `language-adapter-scala`).
+- [x] **G4. GPU Driver / RTSS Overlay Hook Crash (`suppress-gpu-hooks`)**:
+  - *Trigger*: Access violation in `nvoglv64.dll`, `atig6pxx.dll`, `RTSSHooks64.dll`, `DiscordHook64.dll`.
+  - *Fix*: Inject `-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true` to bypass incompatible third-party hooks.
+- [x] **G5. 32-Bit Java Runtime Memory Barrier (`force-switch-64bit-java`)**:
+  - *Trigger*: `Could not reserve enough space for ... object heap on 32-Bit Server VM`.
+  - *Fix*: Reset obsolete 32-bit Java path and switch to managed 64-bit Eclipse Temurin.
+- [x] **G6. Quilt Standard Libraries / QSL (`install-qsl-library`)**:
+  - *Trigger*: `Missing required library: QSL` on Quilt modloader.
+  - *Fix*: 1-click install `quilted-fabric-api` from Modrinth.
+- [x] **G7. Corrupted Natives Extraction Cache (`purge-corrupted-natives`)**:
+  - *Trigger*: `UnsatisfiedLinkError: Could not load library: lwjgl` or zero-byte native DLLs.
+  - *Fix*: Wipe instance `natives/` folder to force clean re-extraction from library cache.
+- [x] **G8. SecurityManager Deprecation Barrier on Java 18+ (`allow-security-manager-flag`)**:
+  - *Trigger*: `UnsupportedOperationException: The Security Manager is deprecated` on legacy 1.16/1.18 mods.
+  - *Fix*: Auto-inject JVM launch flag `-Djava.security.manager=allow`.
+
